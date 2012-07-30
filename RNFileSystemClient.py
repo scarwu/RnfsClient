@@ -4,18 +4,21 @@
 import os
 import sys
 import httplib
+import hashlib
 import pyinotify
 import json
 import ConfigParser
 
 class RNFileSystemSDK():
-    def __init__(self):
-        self.config = ConfigParser.RawConfigParser()
-        self.config.read('RNFileSystemClient.cfg')
+    def __init__(self, config_path):
+        self.config_path = config_path
         
-        self.username = self.config.get('local', 'username')
-        self.password = self.config.get('local', 'password')
-        self.token = self.config.get('local', 'token')
+        self.config = ConfigParser.RawConfigParser()
+        self.config.read(self.config_path)
+        
+        self.username = self.config.get('info', 'username')
+        self.password = self.config.get('info', 'password')
+        self.token = self.config.get('info', 'token')
         self.server = self.config.get('server', 'host')
         self.port = self.config.getint('server', 'port')
         self.ssl = self.config.getboolean('server', 'ssl')
@@ -112,8 +115,8 @@ class RNFileSystemSDK():
             self.token = self.result['token']
             
             # Write-back
-            self.config.set('local', 'token', self.token)
-            self.config.write(open('RNFileSystemClient.cfg', 'wb'))
+            self.config.set('info', 'token', self.token)
+            self.config.write(open(self.config_path, 'wb'))
             return True
         else:
             return False
@@ -135,8 +138,8 @@ class RNFileSystemSDK():
         
         if response.status == 200:
             # Write-back
-            self.config.set('local', 'token', '')
-            self.config.write(open('RNFileSystemClient.cfg', 'wb'))
+            self.config.set('info', 'token', '')
+            self.config.write(open(self.config_path, 'wb'))
             return True
         else:
             return False
@@ -216,40 +219,91 @@ class EventHandler(pyinotify.ProcessEvent):
         else:
             print "(F) MOVE T %s" % event.pathname
 
+class LocalDisk():
+    def __init__(self, config_path):
+        self.config_path = config_path
+        
+        self.config = ConfigParser.RawConfigParser()
+        self.config.read(self.config_path)
+        
+        self.local_path = '/tmp/RNFileSystem.Data'
+    
+    def __md5Checksum(self, filePath):
+        fh = open(filePath, 'rb')
+        m = hashlib.md5()
+        while True:
+            data = fh.read(8192)
+            if not data:
+                break
+            m.update(data)
+        return m.hexdigest()
+    
+    def getLocalList(self, path = ''):
+        list = []
+        current_path = self.local_path + path
+        for dir in os.listdir(current_path):
+            if os.path.isdir(current_path + '/' + dir):
+                list.append({
+                    path + '/' + dir: 0
+                })
+                list += self.getLocalList(path + '/' + dir)
+            else:
+                list.append({
+                    path + '/' + dir: self.__md5Checksum(current_path + '/' + dir)
+                })
+        return list
+
 '''
 Reborn Server Client
 '''
 class RNFileSystemClient():
     def __init__(self):
-        self.RNFS = RNFileSystemSDK()
+        self.config_path = 'RNFileSystemClient.ini'
         
-#        # Inotify event mask
-#        self.event_mask = 0
-#        self.event_mask |= pyinotify.IN_DELETE
-#        self.event_mask |= pyinotify.IN_CREATE
-#        self.event_mask |= pyinotify.IN_MODIFY
-#        self.event_mask |= pyinotify.IN_MOVED_TO
-#        self.event_mask |= pyinotify.IN_MOVED_FROM
-#        
-#        # Check root directory
-#        if os.path.exists(config.get('local', 'dir')) == False:
-#            os.mkdir(config.get('local', 'dir'))
-#        
-#        # Event Listener
-#        wm = pyinotify.WatchManager()
-#        wm.add_watch(config.get('local', 'dir'), self.event_mask, rec=True, auto_add=True)
-#        self.notifier = pyinotify.Notifier(wm, EventHandler())
+        self.config = ConfigParser.RawConfigParser()
+        self.config.read(self.config_path)
+        
+        # RNFS SDK
+        self.RNFS = RNFileSystemSDK(self.config_path)
+        
+        # Local Disk
+        self.local = LocalDisk(self.config_path)
+        
+        # Inotify event mask
+        self.event_mask = 0
+        self.event_mask |= pyinotify.IN_DELETE
+        self.event_mask |= pyinotify.IN_CREATE
+        self.event_mask |= pyinotify.IN_MODIFY
+        self.event_mask |= pyinotify.IN_MOVED_TO
+        self.event_mask |= pyinotify.IN_MOVED_FROM
+        
+        # Check root directory
+        if os.path.exists(self.config.get('local', 'target')) == False:
+            os.mkdir(self.config.get('local', 'target'))
+        
+        # Event Listener
+        wm = pyinotify.WatchManager()
+        wm.add_watch(self.config.get('local', 'target'), self.event_mask, rec=True, auto_add=True)
+        self.notifier = pyinotify.Notifier(wm, EventHandler())
     
     '''
     Run Client
     '''
     def run(self):
         if self.RNFS.login():
+            print 'Token'
             print self.RNFS.token;
+            
+            print "\nServer List"
             if(self.RNFS.getList()):
-                print json.dumps(self.RNFS.getResult())
-            if(self.RNFS.getUser()):
-                print json.dumps(self.RNFS.getResult())
+                for path in self.RNFS.getResult():
+                    print path
+#            if(self.RNFS.getUser()):
+#                print json.dumps(self.RNFS.getResult())
+            
+            print "\nLocal List"
+            for path in self.local.getLocalList():
+                print path
         else:
             print 'Login Failed'
             sys.exit()

@@ -3,60 +3,58 @@
 
 import httplib
 import json
+import ConfigParser
 
 class RNFileSystemSDK():
-    def __init__(self, username, password, server, port, ssl):
-        self.username = username
-        self.password = password
-        self.server = server
-        self.port = port
-        self.ssl = ssl    
-    
-    def _send(self, config):
-        # Connection with HTTP or HTTPS
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+    def __init__(self):
+        self.config = ConfigParser.RawConfigParser()
+        self.config.read('RNFileSystemClient.cfg')
         
-        # URL
-        url = "/" + config['api']
-        
-        if config['path'] != None:
-            url += "/" + config['path']
-        
-        # Parameter
-        if str.lower(config['method']) == 'get':
-            params = None
-            if config['params'] != None:
-                url += "?" + config['params']
-        else:
-            params = config['params']
-        
-        # Send Request
-        conn.request(str.upper(config['method']), url, params, config['headers'])
-        response = conn.getresponse()
-        result = {
-            "status": response.status,
-            "reason": response.reason,
-            "data": response.read()
-        }
-        conn.close()
-        return result
-    
-    '''
-    Json Encoder
-    '''
+        self.username = self.config.get('info', 'username')
+        self.password = self.config.get('info', 'password')
+        self.token = self.config.get('info', 'token')
+        self.server = self.config.get('server', 'host')
+        self.port = self.config.getint('server', 'port')
+        self.ssl = self.config.getboolean('server', 'ssl')
+
     def __encode(self, data):
         return json.dumps(data, separators=(',', ':'))
     
+    def __decode(self, data):
+        if data == '':
+            return None
+        else:
+            return json.loads(data)
+
     def getResult(self):
         return self.result
     
     '''
     Authentication API
     '''
+    def __updateToken(self):
+        if self.ssl:
+            conn = httplib.HTTPSConnection(self.server, self.port)
+        else:
+            conn = httplib.HTTPConnection(self.server, self.port)
+            
+        conn.request('PUT', '/auth', None, {
+            'Access-Token': self.token
+        })
+        response = conn.getresponse()
+        self.result = self.__decode(response.read())
+        
+        conn.close()
+
+        if response.status == 200:
+            return True
+        else:
+            return False
+    
     def login(self):
+        if self.__updateToken():
+            return True
+            
         # Connection with HTTP or HTTPS
         if self.ssl:
             conn = httplib.HTTPSConnection(self.server, self.port)
@@ -68,12 +66,16 @@ class RNFileSystemSDK():
             'password': self.password
         }))
         response = conn.getresponse()
-        conn.close()
+        self.result = self.__decode(response.read())
         
-        self.result = json.decoder(response.read())
+        conn.close()
         
         if response.status == 200:
             self.token = self.result['token']
+            
+            # Write-back
+            self.config.set('info', 'token', self.token)
+            self.config.write(open('RNFileSystemClient.cfg', 'wb'))
             return True
         else:
             return False
@@ -85,15 +87,21 @@ class RNFileSystemSDK():
         else:
             conn = httplib.HTTPConnection(self.server, self.port)
             
-        conn.request('DELETE', '/auth', None, self.__encode({
+        conn.request('DELETE', '/auth', None, {
             'Access-Token': self.token
-        }))
+        })
         response = conn.getresponse()
+        self.result = self.__decode(response.read())
+        
         conn.close()
         
-        self.result = json.decoder(response.read())
-        
-        return response.status == 200
+        if response.status == 200:
+            # Write-back
+            self.config.set('info', 'token', '')
+            self.config.write(open('RNFileSystemClient.cfg', 'wb'))
+            return True
+        else:
+            return False
     
     '''
     User API
@@ -104,13 +112,13 @@ class RNFileSystemSDK():
         else:
             conn = httplib.HTTPConnection(self.server, self.port)
             
-        conn.request('GET', '/user'+self.username, None, self.__encode({
+        conn.request('GET', '/user/'+self.username, None, {
             'Access-Token': self.token
-        }))
+        })
         response = conn.getresponse()
-        conn.close()
+        self.result = self.__decode(response.read())
         
-        self.result = json.decoder(response.read())
+        conn.close()
         
         return response.status == 200
     
@@ -123,14 +131,13 @@ class RNFileSystemSDK():
             conn = httplib.HTTPSConnection(self.server, self.port)
         else:
             conn = httplib.HTTPConnection(self.server, self.port)
-            
-        conn.request('GET', '/file', None, self.__encode({
+
+        conn.request('GET', '/file', None, {
             'Access-Token': self.token
-        }))
+        })
         response = conn.getresponse()
+        self.result = self.__decode(response.read())
+        
         conn.close()
         
-        self.result = json.decoder(response.read())
-        
         return response.status == 200
-            
