@@ -38,7 +38,7 @@ class EventHandler(pyinotify.ProcessEvent):
             print "(F) MOVE T %s" % event.pathname
          
 if __name__ == '__main__':
-    local = "/tmp/event_test"
+    local = "/tmp"
     
     event_mask = 0
     event_mask |= pyinotify.IN_DELETE

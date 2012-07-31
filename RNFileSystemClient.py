@@ -226,7 +226,8 @@ class LocalDisk():
         self.config = ConfigParser.RawConfigParser()
         self.config.read(self.config_path)
         
-        self.local_path = '/tmp/RNFileSystem.Data'
+        #self.local_path = '/tmp/RNFileSystem.Data'
+        self.local_path = self.config.get('local', 'target')
     
     def __md5Checksum(self, filePath):
         fh = open(filePath, 'rb')
@@ -291,19 +292,42 @@ class RNFileSystemClient():
     '''
     def run(self):
         if self.RNFS.login():
-            print 'Token'
+            print "Token -"
             print self.RNFS.token;
             
-            print "\nServer List"
+            print "\nUser Information -"
+            if(self.RNFS.getUser()):
+                info = self.RNFS.getResult()
+                for key in info:
+                    print "%12s: %s" % (key, info[key])
+                    
+            print "\nServer List -"
             if(self.RNFS.getList()):
-                for path in self.RNFS.getResult():
-                    print path
-#            if(self.RNFS.getUser()):
-#                print json.dumps(self.RNFS.getResult())
+                server_list = []
+                list = self.RNFS.getResult()
+                list.pop('/')
+                for path in list:
+                    server_list.append(path)
+                server_list = set(server_list)
+                print server_list
             
-            print "\nLocal List"
+            print "\nLocal List -"
+            local_list = []
             for path in self.local.getLocalList():
-                print path
+                for key in path:
+                    local_list.append(key)
+            local_list = set(local_list)
+            print local_list
+            
+            print "\nUL List"
+            print local_list.difference(server_list)
+            
+            print "\nDL List"
+            print server_list.difference(local_list)
+            
+            print "\nFixed List"
+            print server_list.intersection(local_list)
+                        
         else:
             print 'Login Failed'
             sys.exit()
