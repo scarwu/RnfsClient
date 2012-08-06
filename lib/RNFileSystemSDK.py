@@ -20,38 +20,6 @@ class API():
         self.port = self.config.getint('server', 'port')
         self.ssl = self.config.getboolean('server', 'ssl')
     
-    def __send(self, config):
-        # Connection with HTTP or HTTPS
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
-        
-        # URL
-        url = "/" + config['api']
-        
-        if config['path'] != None:
-            url += "/" + config['path']
-        
-        # Parameter
-        if str.lower(config['method']) == 'get':
-            params = None
-            if config['params'] != None:
-                url += "?" + config['params']
-        else:
-            params = config['params']
-        
-        # Send Request
-        conn.request(str.upper(config['method']), url, params, config['headers'])
-        response = conn.getresponse()
-        result = {
-            "status": response.status,
-            "reason": response.reason,
-            "data": response.read()
-        }
-        conn.close()
-        return result
-    
     '''
     JSON Encoder
     '''
@@ -171,7 +139,7 @@ class API():
     def downloadFile(self, server_path, local_path):
         conn = self.__getConnectInstance()
         
-        conn.request('GET', '/file' + server_path, None, {
+        conn.request('GET', urllib2.quote('/file' + server_path.encode('utf-8')), None, {
             'Access-Token': self.token
         })
         response = conn.getresponse()
