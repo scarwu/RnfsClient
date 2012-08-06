@@ -19,11 +19,13 @@ class RNFileSystemClient():
         self.config = ConfigParser.RawConfigParser()
         self.config.read(self.config_path)
         
+        self.local_path = self.config.get('local', 'target')
+        
         # RNFS SDK
         self.RNFS = RNFileSystemSDK.API(self.config_path)
         
         # Local Disk
-        self.local = CustomTools.FileHandler(self.config_path)
+        self.FH = CustomTools.FileHandler(self.config_path)
         
         # Inotify event mask
         self.event_mask = 0
@@ -34,18 +36,15 @@ class RNFileSystemClient():
         self.event_mask |= pyinotify.IN_MOVED_FROM
         
         # Check root directory
-        if os.path.exists(self.config.get('local', 'target')) == False:
-            os.mkdir(self.config.get('local', 'target'))
+        if os.path.exists(self.local_path) == False:
+            os.mkdir(self.local_path)
         
         # Event Listener
         wm = pyinotify.WatchManager()
-        wm.add_watch(self.config.get('local', 'target'), self.event_mask, rec=True, auto_add=True)
+        wm.add_watch(self.local_path, self.event_mask, rec=True, auto_add=True)
         self.notifier = pyinotify.Notifier(wm, EventListener.Handler())
     
-    '''
-    Run Client
-    '''
-    def run(self):
+    def completeSync(self):
         if self.RNFS.login():
             print "Token -"
             print self.RNFS.token;
@@ -58,35 +57,55 @@ class RNFileSystemClient():
                     
             print "\nServer List -"
             if(self.RNFS.getList()):
+                server_full_list = self.RNFS.getResult()
+                server_full_list.pop('/')
+
                 server_list = []
-                list = self.RNFS.getResult()
-                list.pop('/')
-                for path in list:
+                for path in server_full_list:
                     server_list.append(path)
                 server_list = set(server_list)
                 print server_list
             
             print "\nLocal List -"
+            local_full_list = self.FH.getLocalList()
+            
             local_list = []
-            for path in self.local.getLocalList():
+            for path in local_full_list:
                 for key in path:
                     local_list.append(key)
             local_list = set(local_list)
             print local_list
             
             print "\nUL List"
-            print local_list.difference(server_list)
+            upload_list = local_list.difference(server_list)
+            print upload_list
             
             print "\nDL List"
-            print server_list.difference(local_list)
+            download_list = server_list.difference(local_list)
+            print download_list
             
             print "\nFixed List"
             print server_list.intersection(local_list)
+            
+            print "\nStart Download"
+            for index in download_list:
+                if server_full_list[index]['type'] == 'dir':
+                    os.mkdir(self.local_path + index)
+                else:
+                    print "Download file: " + index
+                    self.RNFS.downloadFile(index, self.local_path + index)
+            
+            print "\nStart Upload"
                         
         else:
             print 'Login Failed'
             sys.exit()
-        
+    
+    '''
+    Run Client
+    '''
+    def run(self):
+        self.completeSync()
 #        self.notifier.loop()
 
 if __name__ == '__main__':

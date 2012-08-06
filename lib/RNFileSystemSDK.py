@@ -4,6 +4,7 @@
 import httplib
 import json
 import ConfigParser
+import os
 
 class API():
     def __init__(self, config_path):
@@ -63,6 +64,12 @@ class API():
         else:
             return json.loads(data)
 
+    def __getConnectInstance(self):
+        if self.ssl:
+            return httplib.HTTPSConnection(self.server, self.port)
+        else:
+            return httplib.HTTPConnection(self.server, self.port)
+
     def getResult(self):
         return self.result
     
@@ -70,10 +77,7 @@ class API():
     Authentication API
     '''
     def __updateToken(self):
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+        conn = self.__getConnectInstance()
             
         conn.request('PUT', '/auth', None, {
             'Access-Token': self.token
@@ -92,11 +96,7 @@ class API():
         if self.__updateToken():
             return True
             
-        # Connection with HTTP or HTTPS
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+        conn = self.__getConnectInstance()
             
         conn.request('POST', '/auth', self.__encode({
             'username': self.username,
@@ -118,11 +118,7 @@ class API():
             return False
     
     def logout(self):
-        # Connection with HTTP or HTTPS
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+        conn = self.__getConnectInstance()
             
         conn.request('DELETE', '/auth', None, {
             'Access-Token': self.token
@@ -144,10 +140,7 @@ class API():
     User API
     '''
     def getUser(self):
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+        conn = self.__getConnectInstance()
             
         conn.request('GET', '/user/'+self.username, None, {
             'Access-Token': self.token
@@ -163,15 +156,47 @@ class API():
     File API
     '''
     def getList(self):
-        # Connection with HTTP or HTTPS
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+        conn = self.__getConnectInstance()
 
         conn.request('GET', '/file', None, {
             'Access-Token': self.token
         })
+        response = conn.getresponse()
+        self.result = self.__decode(response.read())
+        
+        conn.close()
+        
+        return response.status == 200
+    
+    def downloadFile(self, server_path, local_path):
+        conn = self.__getConnectInstance()
+        
+        conn.request('GET', '/file' + server_path, None, {
+            'Access-Token': self.token
+        })
+        response = conn.getresponse()
+        
+        os.path.dirname(local_path)
+        
+        f = open(local_path,"wb")
+        f.write(response.read())
+        f.close()
+        
+        self.result = None
+        
+        conn.close()
+        
+        return response.status == 200
+    
+    def uploadFile(self, server_path, local_path):
+        conn = self.__getConnectInstance()
+
+        f = open(local_path,"rb")
+        conn.request('POST', '/file' + server_path, f.read(), {
+            'Access-Token': self.token
+        })
+        f.close()
+        
         response = conn.getresponse()
         self.result = self.__decode(response.read())
         
