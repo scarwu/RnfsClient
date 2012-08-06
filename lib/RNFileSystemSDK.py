@@ -5,10 +5,12 @@ import httplib
 import json
 import ConfigParser
 
-class RNFileSystemSDK():
-    def __init__(self):
+class API():
+    def __init__(self, config_path):
+        self.config_path = config_path
+        
         self.config = ConfigParser.RawConfigParser()
-        self.config.read('RNFileSystemClient.cfg')
+        self.config.read(self.config_path)
         
         self.username = self.config.get('info', 'username')
         self.password = self.config.get('info', 'password')
@@ -16,7 +18,42 @@ class RNFileSystemSDK():
         self.server = self.config.get('server', 'host')
         self.port = self.config.getint('server', 'port')
         self.ssl = self.config.getboolean('server', 'ssl')
-
+    
+    def __send(self, config):
+        # Connection with HTTP or HTTPS
+        if self.ssl:
+            conn = httplib.HTTPSConnection(self.server, self.port)
+        else:
+            conn = httplib.HTTPConnection(self.server, self.port)
+        
+        # URL
+        url = "/" + config['api']
+        
+        if config['path'] != None:
+            url += "/" + config['path']
+        
+        # Parameter
+        if str.lower(config['method']) == 'get':
+            params = None
+            if config['params'] != None:
+                url += "?" + config['params']
+        else:
+            params = config['params']
+        
+        # Send Request
+        conn.request(str.upper(config['method']), url, params, config['headers'])
+        response = conn.getresponse()
+        result = {
+            "status": response.status,
+            "reason": response.reason,
+            "data": response.read()
+        }
+        conn.close()
+        return result
+    
+    '''
+    JSON Encoder
+    '''
     def __encode(self, data):
         return json.dumps(data, separators=(',', ':'))
     
@@ -75,7 +112,7 @@ class RNFileSystemSDK():
             
             # Write-back
             self.config.set('info', 'token', self.token)
-            self.config.write(open('RNFileSystemClient.cfg', 'wb'))
+            self.config.write(open(self.config_path, 'wb'))
             return True
         else:
             return False
@@ -98,7 +135,7 @@ class RNFileSystemSDK():
         if response.status == 200:
             # Write-back
             self.config.set('info', 'token', '')
-            self.config.write(open('RNFileSystemClient.cfg', 'wb'))
+            self.config.write(open(self.config_path, 'wb'))
             return True
         else:
             return False
@@ -141,3 +178,4 @@ class RNFileSystemSDK():
         conn.close()
         
         return response.status == 200
+    
