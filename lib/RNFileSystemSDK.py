@@ -1,10 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-import httplib
-import json
-import ConfigParser
 import os
+import json
+import random
+import urllib2
+import httplib
+import hashlib
+import ConfigParser
 
 class API():
     def __init__(self, config_path):
@@ -188,17 +188,44 @@ class API():
         
         return response.status == 200
     
-    def uploadFile(self, server_path, local_path):
+    def uploadFile(self, server_path, local_path = None):
         conn = self.__getConnectInstance()
+        
+        url = urllib2.quote('/file' + server_path.encode('utf-8'))
+        
+        if local_path == None:
+            conn.request('POST', url, None, {'Access-Token': self.token})
+        else:
+            m = hashlib.md5()
+            m.update('%f' % random.random())
+            bundary = m.hexdigest()
+            body = []
 
-        f = open(local_path,"rb")
-        conn.request('POST', '/file' + server_path, f.read(), {
-            'Access-Token': self.token
-        })
-        f.close()
+            print bundary
+
+            f = open(local_path, 'rb')
+            file_content = f.read()
+            f.close()
+            
+            body.extend([
+                '--' + bundary,
+                'Content-Disposition: form-data; name="file"; filename="%s"' % os.path.basename(local_path),
+                'Content-Type: application/octet-stream',
+                '',
+                file_content,
+                '--' + bundary + '--',
+                ''
+            ])
+
+            conn.request('POST', url, '\r\n'.join(body), {
+                'Accept': 'text/plain',
+                'Access-Token': self.token,
+                'Content-Type': 'multipart/form-data; boundary=%s' % bundary
+            })
         
         response = conn.getresponse()
-        self.result = self.__decode(response.read())
+
+        self.result = None
         
         conn.close()
         

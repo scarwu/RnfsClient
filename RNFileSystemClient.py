@@ -54,48 +54,65 @@ class RNFileSystemClient():
                 info = self.RNFS.getResult()
                 for key in info:
                     print "%12s: %s" % (key, info[key])
-                    
+            
+            print "\n------------------------------"
+            
             print "\nServer List -"
             if(self.RNFS.getList()):
                 server_full_list = self.RNFS.getResult()
                 server_full_list.pop('/')
-
-                server_list = []
-                for path in server_full_list:
-                    server_list.append(path)
-                server_list = set(server_list)
+                
+                server_list = server_full_list.keys()
+                server_list.sort()
                 print server_list
             
             print "\nLocal List -"
             local_full_list = self.FH.getLocalList()
-            
-            local_list = []
-            for path in local_full_list:
-                for key in path:
-                    local_list.append(key)
-            local_list = set(local_list)
+
+            local_list = local_full_list.keys()
+            local_list.sort()
             print local_list
             
-            print "\nUL List"
-            upload_list = local_list.difference(server_list)
-            print upload_list
+            print "\n------------------------------"
             
-            print "\nDL List"
-            download_list = server_list.difference(local_list)
+            print "\nDL List -"
+            download_list = list(set(server_list).difference(set(local_list)))
+            download_list.sort()
             print download_list
             
-            print "\nFixed List"
-            print server_list.intersection(local_list)
+            print "\nUL List -"
+            upload_list = list(set(local_list).difference(set(server_list)))
+            upload_list.sort()
+            print upload_list
+
+            print "\nIdentical List -"
+            identical_list = list(set(server_list).intersection(set(local_list)))
+            identical_list.sort()
+            print identical_list
             
-            print "\nStart Download"
+            print "\n------------------------------"
+            
+            print "\nStart Download -"
             for index in download_list:
                 if server_full_list[index]['type'] == 'dir':
                     os.mkdir(self.local_path + index)
                 else:
                     print "Download file: " + index
-                    self.RNFS.downloadFile(index, self.local_path + index)
+                    if self.RNFS.downloadFile(index, self.local_path + index):
+                        print '...Success'
+                    else:
+                        print '...Fail'
             
-            print "\nStart Upload"
+            print "\nStart Upload -"
+            for index in upload_list:
+                if local_full_list[index]['type'] == 'dir':
+                    self.RNFS.uploadFile(index)
+                else:
+                    print "Upload file: " + index
+                    if self.RNFS.uploadFile(index, self.local_path + index):
+                        print '...Success'
+                    else:
+                        print '...Fail'
                         
         else:
             print 'Login Failed'

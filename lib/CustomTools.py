@@ -5,11 +5,10 @@ import ConfigParser
 class FileHandler():
     def __init__(self, config_path):
         self.config_path = config_path
-        
+
         self.config = ConfigParser.RawConfigParser()
         self.config.read(self.config_path)
         
-        #self.local_path = '/tmp/RNFileSystem.Data'
         self.local_path = self.config.get('local', 'target')
     
     def __md5Checksum(self, filePath):
@@ -23,16 +22,17 @@ class FileHandler():
         return m.hexdigest()
     
     def getLocalList(self, path = ''):
-        list = []
+        local_list = {}
         current_path = self.local_path + path
-        for dir in os.listdir(current_path):
-            if os.path.isdir(current_path + '/' + dir):
-                list.append({
-                    path + '/' + dir: 0
-                })
-                list += self.getLocalList(path + '/' + dir)
+        for dirname in os.listdir(current_path):
+            if os.path.isdir(current_path + '/' + dirname):
+                local_list[path + '/' + dirname] = {
+                    'type': 'dir'
+                }
+                local_list.update(self.getLocalList(path + '/' + dirname))
             else:
-                list.append({
-                    path + '/' + dir: self.__md5Checksum(current_path + '/' + dir)
-                })
-        return list
+                local_list[path + '/' + dirname] = {
+                    'type': 'file',
+                    'hash': self.__md5Checksum(current_path + '/' + dirname)
+                }
+        return local_list
