@@ -62,8 +62,12 @@ class RNFileSystemClient():
                 server_full_list = self.RNFS.getResult()
                 server_full_list.pop('/')
                 
-                server_list = server_full_list.keys()
+                server_list = []
+                for index in server_full_list.keys():
+                    server_list.append(index.encode('utf-8'))
+                
                 server_list.sort()
+                
                 print server_list
             
             print "\nLocal List -"
