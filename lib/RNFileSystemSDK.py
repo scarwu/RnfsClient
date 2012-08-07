@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import os
 import json
 import random
@@ -139,7 +141,7 @@ class API():
     def downloadFile(self, server_path, local_path):
         conn = self.__getConnectInstance()
         
-        conn.request('GET', urllib2.quote('/file' + server_path.encode('utf-8')), None, {
+        conn.request('GET', urllib2.quote('/file' + server_path), None, {
             'Access-Token': self.token
         })
         response = conn.getresponse()
@@ -159,7 +161,7 @@ class API():
     def uploadFile(self, server_path, local_path = None):
         conn = self.__getConnectInstance()
         
-        url = urllib2.quote('/file' + server_path.encode('utf-8'))
+        url = urllib2.quote('/file' + server_path)
         
         if local_path == None:
             conn.request('POST', url, None, {'Access-Token': self.token})
@@ -168,8 +170,6 @@ class API():
             m.update('%f' % random.random())
             bundary = m.hexdigest()
             body = []
-
-            print bundary
 
             f = open(local_path, 'rb')
             file_content = f.read()
