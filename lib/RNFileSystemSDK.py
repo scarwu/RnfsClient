@@ -1,14 +1,17 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-import httplib
+import os
 import json
+import random
+import urllib2
+import httplib
+import hashlib
 import ConfigParser
 
-class RNFileSystemSDK():
-    def __init__(self):
+class API():
+    def __init__(self, config_path):
+        self.config_path = config_path
+        
         self.config = ConfigParser.RawConfigParser()
-        self.config.read('RNFileSystemClient.cfg')
+        self.config.read(self.config_path)
         
         self.username = self.config.get('info', 'username')
         self.password = self.config.get('info', 'password')
@@ -16,7 +19,10 @@ class RNFileSystemSDK():
         self.server = self.config.get('server', 'host')
         self.port = self.config.getint('server', 'port')
         self.ssl = self.config.getboolean('server', 'ssl')
-
+    
+    '''
+    JSON Encoder
+    '''
     def __encode(self, data):
         return json.dumps(data, separators=(',', ':'))
     
@@ -26,6 +32,12 @@ class RNFileSystemSDK():
         else:
             return json.loads(data)
 
+    def __getConnectInstance(self):
+        if self.ssl:
+            return httplib.HTTPSConnection(self.server, self.port)
+        else:
+            return httplib.HTTPConnection(self.server, self.port)
+
     def getResult(self):
         return self.result
     
@@ -33,10 +45,7 @@ class RNFileSystemSDK():
     Authentication API
     '''
     def __updateToken(self):
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+        conn = self.__getConnectInstance()
             
         conn.request('PUT', '/auth', None, {
             'Access-Token': self.token
@@ -55,11 +64,7 @@ class RNFileSystemSDK():
         if self.__updateToken():
             return True
             
-        # Connection with HTTP or HTTPS
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+        conn = self.__getConnectInstance()
             
         conn.request('POST', '/auth', self.__encode({
             'username': self.username,
@@ -75,17 +80,13 @@ class RNFileSystemSDK():
             
             # Write-back
             self.config.set('info', 'token', self.token)
-            self.config.write(open('RNFileSystemClient.cfg', 'wb'))
+            self.config.write(open(self.config_path, 'wb'))
             return True
         else:
             return False
     
     def logout(self):
-        # Connection with HTTP or HTTPS
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+        conn = self.__getConnectInstance()
             
         conn.request('DELETE', '/auth', None, {
             'Access-Token': self.token
@@ -98,7 +99,7 @@ class RNFileSystemSDK():
         if response.status == 200:
             # Write-back
             self.config.set('info', 'token', '')
-            self.config.write(open('RNFileSystemClient.cfg', 'wb'))
+            self.config.write(open(self.config_path, 'wb'))
             return True
         else:
             return False
@@ -107,10 +108,7 @@ class RNFileSystemSDK():
     User API
     '''
     def getUser(self):
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+        conn = self.__getConnectInstance()
             
         conn.request('GET', '/user/'+self.username, None, {
             'Access-Token': self.token
@@ -126,11 +124,7 @@ class RNFileSystemSDK():
     File API
     '''
     def getList(self):
-        # Connection with HTTP or HTTPS
-        if self.ssl:
-            conn = httplib.HTTPSConnection(self.server, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.server, self.port)
+        conn = self.__getConnectInstance()
 
         conn.request('GET', '/file', None, {
             'Access-Token': self.token
@@ -141,3 +135,67 @@ class RNFileSystemSDK():
         conn.close()
         
         return response.status == 200
+    
+    def downloadFile(self, server_path, local_path):
+        conn = self.__getConnectInstance()
+        
+        conn.request('GET', urllib2.quote('/file' + server_path.encode('utf-8')), None, {
+            'Access-Token': self.token
+        })
+        response = conn.getresponse()
+        
+        os.path.dirname(local_path)
+        
+        f = open(local_path,"wb")
+        f.write(response.read())
+        f.close()
+        
+        self.result = None
+        
+        conn.close()
+        
+        return response.status == 200
+    
+    def uploadFile(self, server_path, local_path = None):
+        conn = self.__getConnectInstance()
+        
+        url = urllib2.quote('/file' + server_path.encode('utf-8'))
+        
+        if local_path == None:
+            conn.request('POST', url, None, {'Access-Token': self.token})
+        else:
+            m = hashlib.md5()
+            m.update('%f' % random.random())
+            bundary = m.hexdigest()
+            body = []
+
+            print bundary
+
+            f = open(local_path, 'rb')
+            file_content = f.read()
+            f.close()
+            
+            body.extend([
+                '--' + bundary,
+                'Content-Disposition: form-data; name="file"; filename="%s"' % os.path.basename(local_path),
+                'Content-Type: application/octet-stream',
+                '',
+                file_content,
+                '--' + bundary + '--',
+                ''
+            ])
+
+            conn.request('POST', url, '\r\n'.join(body), {
+                'Accept': 'text/plain',
+                'Access-Token': self.token,
+                'Content-Type': 'multipart/form-data; boundary=%s' % bundary
+            })
+        
+        response = conn.getresponse()
+
+        self.result = None
+        
+        conn.close()
+        
+        return response.status == 200
+    

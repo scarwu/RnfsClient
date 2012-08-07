@@ -2,3 +2,4 @@ RNFileSystemClient.ini
 .project
 .pydevproject
 .settings
+lib/*.pyc
