@@ -2,4 +2,6 @@ RNFileSystemClient.ini
 .project
 .pydevproject
 .settings
-lib/*.pyc
+lib/CustomTools.pyc
+lib/EventListener.pyc
+lib/RNFileSystemSDK.pyc

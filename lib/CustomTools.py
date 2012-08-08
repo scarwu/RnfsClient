@@ -35,6 +35,7 @@ class FileHandler():
             else:
                 local_list[path + '/' + dirname] = {
                     'type': 'file',
-                    'hash': self.__md5Checksum(current_path + '/' + dirname)
+                    'hash': self.__md5Checksum(current_path + '/' + dirname),
+                    'size': os.path.getsize(current_path + '/' + dirname)
                 }
         return local_list

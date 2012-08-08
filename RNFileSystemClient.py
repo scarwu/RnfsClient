@@ -46,18 +46,15 @@ class RNFileSystemClient():
     
     def completeSync(self):
         if self.RNFS.login():
-            print "Token -"
-            print self.RNFS.token;
+            print "\n%s\n" % self.RNFS.token
             
-            print "\nUser Information -"
             if(self.RNFS.getUser()):
                 info = self.RNFS.getResult()
                 for key in info:
                     print "%12s: %s" % (key, info[key])
             
-            print "\n------------------------------"
-            
-            print "\nServer List -"
+            print "\nGet File List ..."
+            # Get server list
             if(self.RNFS.getList()):
                 server_full_list = self.RNFS.getResult()
                 server_full_list.pop('/')
@@ -65,58 +62,63 @@ class RNFileSystemClient():
                 server_list = []
                 for index in server_full_list.keys():
                     server_list.append(index.encode('utf-8'))
-                
                 server_list.sort()
                 
-                print server_list
-            
-            print "\nLocal List -"
+            # Get local list
             local_full_list = self.FH.getLocalList()
 
             local_list = local_full_list.keys()
             local_list.sort()
-            print local_list
             
-            print "\n------------------------------"
-            
-            print "\nDL List -"
+            print "Calculate Differ List ..."
+            # Create download list
             download_list = list(set(server_list).difference(set(local_list)))
             download_list.sort()
-            print download_list
-            
-            print "\nUL List -"
+
+            # Create upload list
             upload_list = list(set(local_list).difference(set(server_list)))
             upload_list.sort()
-            print upload_list
-
-            print "\nIdentical List -"
+            
+            # Create identical list
             identical_list = list(set(server_list).intersection(set(local_list)))
             identical_list.sort()
-            print identical_list
             
-            print "\n------------------------------"
-            
-            print "\nStart Download -"
-            for index in download_list:
-                if server_full_list[index]['type'] == 'dir':
-                    os.mkdir(self.local_path + index)
-                else:
-                    print "Download file: " + index
-                    if self.RNFS.downloadFile(index, self.local_path + index):
-                        print '...Success'
+            download_file_count = len(download_list)
+            upload_file_count = len(upload_list)
+
+            rows, columns = os.popen('stty size', 'r').read().split()
+
+            if download_file_count > 0:
+                print "\nStart Download -"
+                count = 0
+                for index in download_list:
+                    count += 1
+                    if server_full_list[index.decode('utf-8')]['type'] == 'dir':
+                        os.mkdir(self.local_path + index)
                     else:
-                        print '...Fail'
+                        sys.stdout.write("\r%6d / %6d" % (count, download_file_count))
+                        sys.stdout.flush()
+                        if not self.RNFS.downloadFile(index, self.local_path + index):
+                            print '\n%s ... Fail' % index
+                print ''
             
-            print "\nStart Upload -"
-            for index in upload_list:
-                if local_full_list[index]['type'] == 'dir':
-                    self.RNFS.uploadFile(index)
-                else:
-                    print "Upload file: " + index
-                    if self.RNFS.uploadFile(index, self.local_path + index):
-                        print '...Success'
+            if upload_file_count > 0:
+                print "\nStart Upload -"
+                count = 0
+                for index in upload_list:
+                    count += 1
+                    if local_full_list[index]['type'] == 'dir':
+                        self.RNFS.uploadFile(index)
                     else:
-                        print '...Fail'
+                        out = "%6d / %6d - %d bytes" % (count, upload_file_count, local_full_list[index]['size'])
+                        line = "\r%-" + columns + "s"
+                        sys.stdout.write(line % out)
+                        sys.stdout.flush()
+                        if not self.RNFS.uploadFile(index, self.local_path + index):
+                            print '\n%s ... Fail' % index
+                print ''
+            
+            print '\nInitialize Finish'
                         
         else:
             print 'Login Failed'
