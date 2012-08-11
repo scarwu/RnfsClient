@@ -7,6 +7,10 @@ import ConfigParser
 class FileHandler():
     def __init__(self, root):
         self.root = root
+        
+        # Check root directory
+        if not os.path.exists(self.root):
+            os.mkdir(self.root)
     
     def __md5Checksum(self, file_path):
         fh = open(file_path, 'rb')

@@ -6,20 +6,13 @@ import random
 import urllib2
 import httplib
 import hashlib
-import ConfigParser
 
 class API():
     def __init__(self, config):
-        self.username = config['username']
-        self.password = config['password']
-        self.token = config['token']
-        
-        self.host = config['host']
-        self.port = config['port']
-        self.ssl = config['ssl']
-        
+        self.config = config
         self.status = 0
         self.result = None
+        self.error_count = 0
     
     '''
     JSON Encoder
@@ -36,11 +29,11 @@ class API():
             except:
                 return data
 
-    def __getConnectInstance(self):
-        if self.ssl:
-            return httplib.HTTPSConnection(self.host, self.port)
+    def __getConnectInstance(self, alive_time = None):
+        if self.config['ssl']:
+            return httplib.HTTPSConnection(self.config['host'], self.config['port'], timeout=alive_time)
         else:
-            return httplib.HTTPConnection(self.host, self.port)
+            return httplib.HTTPConnection(self.config['host'], self.config['port'], timeout=alive_time)
 
     def getResult(self):
         return self.result
@@ -53,7 +46,7 @@ class API():
     '''
     def __updateToken(self):
         conn = self.__getConnectInstance()
-        conn.request('PUT', '/auth', None, {'Access-Token': self.token})
+        conn.request('PUT', '/auth', None, {'Access-Token': self.config['token']})
         
         response = conn.getresponse()
         self.result = self.__decode(response.read())
@@ -67,8 +60,8 @@ class API():
             
         conn = self.__getConnectInstance()
         conn.request('POST', '/auth', self.__encode({
-            'username': self.username,
-            'password': self.password
+            'username': self.config['username'],
+            'password': self.config['password']
         }))
         
         response = conn.getresponse()
@@ -77,13 +70,13 @@ class API():
         conn.close()
         
         if response.status == 200:
-            self.token = self.result['token']
+            self.config['token'] = self.result['token']
 
         return response.status == 200
     
     def logout(self):
         conn = self.__getConnectInstance()
-        conn.request('DELETE', '/auth', None, {'Access-Token': self.token})
+        conn.request('DELETE', '/auth', None, {'Access-Token': self.config['token']})
         
         response = conn.getresponse()
         self.result = self.__decode(response.read())
@@ -98,7 +91,7 @@ class API():
     '''
     def getUser(self):
         conn = self.__getConnectInstance()
-        conn.request('GET', '/user/'+self.username, None, {'Access-Token': self.token})
+        conn.request('GET', '/user/'+self.config['username'], None, {'Access-Token': self.config['token']})
         
         response = conn.getresponse()
         self.result = self.__decode(response.read())
@@ -113,7 +106,7 @@ class API():
     '''
     def getList(self):
         conn = self.__getConnectInstance()
-        conn.request('GET', '/file', None, {'Access-Token': self.token})
+        conn.request('GET', '/file', None, {'Access-Token': self.config['token']})
         
         response = conn.getresponse()
         self.result = self.__decode(response.read())
@@ -125,9 +118,7 @@ class API():
     
     def downloadFile(self, server_path, local_path):
         conn = self.__getConnectInstance()
-        conn.request('GET', urllib2.quote('/file' + server_path), None, {
-            'Access-Token': self.token
-        })
+        conn.request('GET', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.config['token']})
         
         response = conn.getresponse()
 
@@ -146,11 +137,8 @@ class API():
     
     def uploadFile(self, server_path, local_path = None):
         conn = self.__getConnectInstance()
-        
-        url = urllib2.quote('/file' + server_path)
-        
         if local_path == None:
-            conn.request('POST', url, None, {'Access-Token': self.token})
+            conn.request('POST', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.config['token']})
         else:
             m = hashlib.md5()
             m.update('%f' % random.random())
@@ -169,19 +157,26 @@ class API():
                 ''
             ])
 
-            conn.request('POST', url, '\r\n'.join(body), {
+            conn.request('POST', urllib2.quote('/file/' + server_path.lstrip('/')), '\r\n'.join(body), {
                 'Accept': 'text/plain',
-                'Access-Token': self.token,
+                'Access-Token': self.config['token'],
                 'Content-Type': 'multipart/form-data; boundary=%s' % bundary
             })
         
         response = conn.getresponse()
-
-        if response.status == 200:
-            self.result = None
-        else:
-            self.result = self.__decode(response.read())
-
+        self.result = self.__decode(response.read())
+        self.status = response.status
+        
+        conn.close()
+        
+        return response.status == 200
+    
+    def deleteFile(self, server_path):
+        conn = self.__getConnectInstance()
+        conn.request('DELETE', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.config['token']})
+        
+        response = conn.getresponse()
+        self.result = self.__decode(response.read())
         self.status = response.status
         
         conn.close()
@@ -192,8 +187,8 @@ class API():
     Sync API
     '''
     def sendPolling(self, alive_time):
-        conn = self.__getConnectInstance()
-        conn.request('POST', '/sync/'+self.username, None, {'Access-Token': self.token})
+        conn = self.__getConnectInstance(alive_time)
+        conn.request('POST', '/sync/'+self.config['username'], None, {'Access-Token': self.config['token']})
         
         response = conn.getresponse()
         self.result = self.__decode(response.read())
