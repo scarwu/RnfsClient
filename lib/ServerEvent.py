@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import os
@@ -6,37 +5,50 @@ import sys
 from threading import Thread
 
 class LongPolling(Thread):
-    def __init__(self, ra, dm):
+    def __init__(self, dm ,ra, dh):
         Thread.__init__(self)
         
-        self.ra = ra
         self.dm = dm
+        self.ra = ra
+        self.dh = dh
     
-    def handler(self, data):
-        if data['action'] == 'create':
-            if data['type'] == 'dir':
-                os.mkdir(self.dm.config['root'] + data['path'])
-            elif data['type'] == 'file':
-                self.ra.downloadFile(data['path'], self.dm.config['root'] + data['path'])
+    def handler(self, callback):
+        if callback['action'] == 'create':
+            if callback['type'] == 'dir':
+                print "LP (D) CREATE %s" % callback['path']
+                if os.path.exists(self.dm.config['root'] + callback['path']):
+                    os.mkdir(self.dm.config['root'] + callback['path'])
+            elif callback['type'] == 'file':
+                print "LP (F) CREATE %s" % callback['path']
+                self.dm.download_list[callback['path']] = {
+                    'type': 'file',
+#                    'size': callback['size'],
+                    'hash': callback['hash'],
+                }
+                self.dm.download_index.append(callback['path'])
+                if not self.dh.isAlive():
+                    self.dh.start()
                 
-        elif data['action'] == 'update':
+        elif callback['action'] == 'update':
             pass
         
-        elif data['action'] == 'rename':
-            os.rename(data['path'], data['newpath'])
+        elif callback['action'] == 'rename':
+            print "LP (X) RENAME %s -> %s" % (callback['path'], callback['newpath'])
+            os.rename(self.dm.config['root'] + callback['path'], self.dm.config['root'] + callback['newpath'])
             
-        elif data['action'] == 'delete':
-            if data['type'] == 'dir':
-                os.rmdir(self.dm.config['root'] + data['path'])
-            elif data['type'] == 'file':
-                os.remove(self.dm.config['root'] + data['path'])
+        elif callback['action'] == 'delete':
+            if callback['type'] == 'dir':
+                print "LP (D) DELETE %s" % callback['path']
+                os.rmdir(self.dm.config['root'] + callback['path'])
+            elif callback['type'] == 'file':
+                print "LP (F) DELETE %s" % callback['path']
+                os.remove(self.dm.config['root'] + callback['path'])
     
     def run(self):
+        print "LP ... Start"
         while(1):
-            self.ra.sendPolling(self.config['polling_time'])
-            
-            print "LP %s %s" % (self.ra.getStatus(), self.ra.getResult())
-            
+            self.ra.sendPolling(self.dm.config['polling_time'])
+
             if self.ra.getStatus() == 200:
                 self.handler(self.ra.getResult())
                 
@@ -55,5 +67,5 @@ class LongPolling(Thread):
             else:
                 print self.ra.getStatus()
                 print self.ra.getResult()
-                print 'RC ... Exit'
+                print 'LP ... Exit'
                 sys.exit()

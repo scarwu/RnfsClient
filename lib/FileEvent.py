@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
+import hashlib
 import pyinotify
 from threading import Thread
+from collections import deque
 
 class EventListener(Thread):
-    def __init__(self, ra, dm):
+    def __init__(self, dm ,ra, uh):
         Thread.__init__(self)
         
         # Inotify event mask
@@ -20,55 +21,56 @@ class EventListener(Thread):
         # Event Listener
         wm = pyinotify.WatchManager()
         wm.add_watch(dm.config['root'], self.event_mask, rec=True, auto_add=True)
-        self.notifier = pyinotify.Notifier(wm, EventHandler(ra, dm))
+        self.notifier = pyinotify.Notifier(wm, EventHandler(dm ,ra, uh))
     
     def run(self):
+        print "EL ... Start"
         # Start Loop
         self.notifier.loop()
 
 class EventHandler(pyinotify.ProcessEvent):
-    def __init__(self, ra, dm):
+    def __init__(self, dm ,ra, uh):
         pyinotify.ProcessEvent.__init__(self)
         
-        self.ra = ra
         self.dm = dm
+        self.ra = ra
+        self.uh = uh
     
-    def errorHandler(self, status):
-        if status == 401:
-            print 'EL ... Login'
-            if self.ra.login():
-                self.dm.saveToken(self.ra.config['token'])
-            else:
-                print self.ra.getStatus()
-                print self.ra.getResult()
-                print 'RC ... Exit'
-                sys.exit()
-                
-        elif status == 404:
-            print "EL %d %s" % (self.ra.getStatus(), self.ra.getResult())
-            
-        else:
-            print "EL %d %s" % (self.ra.getStatus(), self.ra.getResult())
-            print 'RC ... Exit'
-            sys.exit()
+    def md5Checksum(self, file_path):
+        fh = open(file_path, 'rb')
+        m = hashlib.md5()
+        while True:
+            data = fh.read(8192)
+            if not data:
+                break
+            m.update(data)
+        return m.hexdigest()
     
     def process_IN_DELETE(self, event):
         path = event.pathname[len(self.dm.config['root']):]
         print "EL (X) DELETE %s" % path
-        # FIXME
-        while not self.ra.deleteFile(path):
-            self.errorHandler(self.ra.getStatus())
+        self.ra.deleteFile(path);
         
     def process_IN_CREATE(self, event):
         path = event.pathname[len(self.dm.config['root']):]
         if os.path.isdir(event.pathname):
             print "EL (D) CREATE %s" % path
-            while not self.ra.uploadFile(path):
-                self.errorHandler(self.ra.getStatus())
+            self.dm.local_list[path] = {
+                'type': 'dir'
+            }
+            self.dm.upload_index.append(path)
+            if not self.uh.isAlive():
+                self.uh.start()
         else:
             print "EL (F) CREATE %s" % path
-            while not self.ra.uploadFile(path, event.pathname):
-                self.errorHandler(self.ra.getStatus())
+            self.dm.local_list[path] = {
+                'type': 'file',
+                'hash': self.md5Checksum(event.pathname),
+                'size': os.path.getsize(event.pathname)
+            }
+            self.dm.upload_index.append(path)
+            if not self.uh.isAlive():
+                self.uh.start()
             
 #    def process_IN_MODIFY(self, event):
 #        path = event.pathname[len(self.dm.config['root']):]

@@ -50,10 +50,8 @@ class DownloadHandler(Thread):
         self.dm = dm
         
     def run(self):
-        self.dm.is_download = True
         if self.dm.download_index:
             self.handler()
-        self.dm.is_download = False
     
     def handler(self):
         while self.dm.download_index:

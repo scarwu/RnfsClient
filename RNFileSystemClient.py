@@ -47,9 +47,6 @@ class DataManage():
         self.upload_index = deque([])
         self.download_index = deque([])
         
-        self.is_download = True
-        self.is_upload = True
-        
     def saveToken(self, token):
         self.config_parser.set('info', 'token', token)
         self.config_parser.write(open(self.config['config_path'], 'wb'))
@@ -66,9 +63,9 @@ class ComleteSync(Thread):
         self.dm = dm
     
     def run(self):
+        print "CS ... Start"
         while(1):
-            time.sleep(self.config['sync_time'])
-            print 'CS ...'
+            time.sleep(self.dm.config['sync_time'])
             self.handler()
     
     def handler(self):
@@ -77,15 +74,18 @@ class ComleteSync(Thread):
         else:
             print self.ra.getStatus()
             print self.ra.getResult()
-            print 'RC .. Exit'
+            print 'CS .. Exit'
             sys.exit()
         
         if(self.ra.getUser()):
             self.dm.user_info = self.ra.getResult()
-            print "%12s: %s" % ('User', self.dm.user_info['username'])
-            print "%12s: %.2f / %.2f MB" % ('Capacity', self.dm.user_info['used']/1024/1024, self.dm.user_info['capacity']/1024/1024)
-            print "%12s: %.2f MB" % ('Upload Limit', self.dm.user_info['upload_limit']/1024/1024)
-            print "%12s: %s" % ('Access Token', self.dm.config['token'])
+            print "CS ... %s - %.2f / %.2f / %.2f" % (
+                self.dm.user_info['username'],
+                self.dm.user_info['used']/1024/1024,
+                self.dm.user_info['capacity']/1024/1024,
+                self.dm.user_info['upload_limit']/1024/1024
+            )
+            print "CS ... %s" % self.dm.config['token']
             
         # Get server list
         if(self.ra.getList()):
@@ -113,16 +113,9 @@ class ComleteSync(Thread):
         
         self.dm.server_list = server_list
         self.dm.local_list = local_list
-        
-        if self.dm.download_index:
-            self.dm.download_index.append(deque(download_index))
-        else:
-            self.dm.download_index = deque(download_index)
-            
-        if self.dm.upload_index:
-            self.dm.upload_index.append(deque(upload_index))
-        else:
-            self.dm.upload_index = deque(upload_index)
+
+        self.dm.download_index += deque(download_index)
+        self.dm.upload_index += deque(upload_index)
 
 if __name__ == '__main__':
     # Init Data Manage
@@ -138,20 +131,18 @@ if __name__ == '__main__':
 
     # Init CS, LP, EL
     cs = ComleteSync(ra, ld, dm)
-    lp = ServerEvent.LongPolling(ra, dm)
-    el = FileEvent.EventListener(ra, dm)
+    lp = ServerEvent.LongPolling(dm, ra, dh)
+    el = FileEvent.EventListener(dm, ra, uh)
     
     # Start Complete Sync
     cs.handler()
     dh.start()
     uh.start()
     
-    while(dm.is_upload or dm.is_download):
+    while(dh.isAlive() or uh.isAlive()):
         time.sleep(1)
     
     # Start Thread
-#    cs.start()
-#    lp.start()
-#    el.start()
-
-    print '\nClient Bootstrap Success'
+    cs.start()
+    lp.start()
+    el.start()

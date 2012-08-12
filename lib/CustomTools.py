@@ -2,7 +2,6 @@
 
 import os
 import hashlib
-import ConfigParser
 
 class FileHandler():
     def __init__(self, root):
@@ -12,7 +11,7 @@ class FileHandler():
         if not os.path.exists(self.root):
             os.mkdir(self.root)
     
-    def __md5Checksum(self, file_path):
+    def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
         m = hashlib.md5()
         while True:
@@ -34,7 +33,26 @@ class FileHandler():
             else:
                 local_list[path + '/' + dirname] = {
                     'type': 'file',
-                    'hash': self.__md5Checksum(current_path + '/' + dirname),
+                    'hash': self.md5Checksum(current_path + '/' + dirname),
                     'size': os.path.getsize(current_path + '/' + dirname)
                 }
         return local_list
+    
+    def removeDir(self, dirname):
+        for path in (os.path.join(dirname, filename) for filename in os.listdir(self.root + '/' + dirname)):
+            if os.path.isdir(path):
+                self.removeDir(path)
+            elif os.path.exists(path):
+                    os.unlink(path)
+                    
+        if os.path.exists(dirname):
+            os.rmdir(dirname)
+    
+    def fileInfo(self, path):
+        if not os.path.exists(path):
+            return None
+        else:
+            return {
+                'hash': self.md5Checksum(self.root + '/' + path),
+                'size': os.path.getsize(self.root + '/' + path)
+            }
