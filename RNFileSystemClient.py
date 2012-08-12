@@ -3,133 +3,146 @@
 
 import os
 import sys
-import pyinotify
 import ConfigParser
+import time
+from threading import Thread
+from collections import deque
 
 sys.path.append('./lib')
 
 import RNFileSystemSDK
-import EventListener
 import CustomTools
+import ServerEvent
+import FileEvent
+import UDModel
 
-class RNFileSystemClient():
+'''
+Data Manage
+'''
+class DataManage():
     def __init__(self):
         self.config_path = 'RNFileSystemClient.ini'
+        if not os.path.exists(self.config_path):
+            file(self.config_path, 'wb').write(file('RNFileSystemClient.sample.ini', 'rb').read())
         
-        self.config = ConfigParser.RawConfigParser()
-        self.config.read(self.config_path)
+        self.config_parser = ConfigParser.RawConfigParser()
+        self.config_parser.read(self.config_path)
+        self.config = {
+            'config_path': self.config_path,
+            'root': self.config_parser.get('local', 'root'),
+            'host': self.config_parser.get('server', 'host'),
+            'port': self.config_parser.getint('server', 'port'),
+            'ssl': self.config_parser.getboolean('server', 'ssl'),
+            'sync_time': self.config_parser.getint('time', 'sync'),
+            'polling_time': self.config_parser.getint('time', 'polling'),
+            'username': self.config_parser.get('info', 'username'),
+            'password': self.config_parser.get('info', 'password'),
+            'token': self.config_parser.get('info', 'token')
+        }
         
-        self.local_path = self.config.get('local', 'target')
+        self.user_info = {}
+        self.server_list = {}
+        self.local_list = {}
         
-        # RNFS SDK
-        self.RNFS = RNFileSystemSDK.API(self.config_path)
+        self.upload_index = deque([])
+        self.download_index = deque([])
         
-        # Local Disk
-        self.FH = CustomTools.FileHandler(self.config_path)
-        
-        # Inotify event mask
-        self.event_mask = 0
-        self.event_mask |= pyinotify.IN_DELETE
-        self.event_mask |= pyinotify.IN_CREATE
-        self.event_mask |= pyinotify.IN_MODIFY
-        self.event_mask |= pyinotify.IN_MOVED_TO
-        self.event_mask |= pyinotify.IN_MOVED_FROM
-        
-        # Check root directory
-        if os.path.exists(self.local_path) == False:
-            os.mkdir(self.local_path)
-        
-        # Event Listener
-        wm = pyinotify.WatchManager()
-        wm.add_watch(self.local_path, self.event_mask, rec=True, auto_add=True)
-        self.notifier = pyinotify.Notifier(wm, EventListener.Handler())
-    
-    def completeSync(self):
-        if self.RNFS.login():
-            print "Token -"
-            print self.RNFS.token;
-            
-            print "\nUser Information -"
-            if(self.RNFS.getUser()):
-                info = self.RNFS.getResult()
-                for key in info:
-                    print "%12s: %s" % (key, info[key])
-            
-            print "\n------------------------------"
-            
-            print "\nServer List -"
-            if(self.RNFS.getList()):
-                server_full_list = self.RNFS.getResult()
-                server_full_list.pop('/')
-                
-                server_list = []
-                for index in server_full_list.keys():
-                    server_list.append(index.encode('utf-8'))
-                
-                server_list.sort()
-                
-                print server_list
-            
-            print "\nLocal List -"
-            local_full_list = self.FH.getLocalList()
+    def saveToken(self, token):
+        self.config_parser.set('info', 'token', token)
+        self.config_parser.write(open(self.config['config_path'], 'wb'))
 
-            local_list = local_full_list.keys()
-            local_list.sort()
-            print local_list
-            
-            print "\n------------------------------"
-            
-            print "\nDL List -"
-            download_list = list(set(server_list).difference(set(local_list)))
-            download_list.sort()
-            print download_list
-            
-            print "\nUL List -"
-            upload_list = list(set(local_list).difference(set(server_list)))
-            upload_list.sort()
-            print upload_list
-
-            print "\nIdentical List -"
-            identical_list = list(set(server_list).intersection(set(local_list)))
-            identical_list.sort()
-            print identical_list
-            
-            print "\n------------------------------"
-            
-            print "\nStart Download -"
-            for index in download_list:
-                if server_full_list[index]['type'] == 'dir':
-                    os.mkdir(self.local_path + index)
-                else:
-                    print "Download file: " + index
-                    if self.RNFS.downloadFile(index, self.local_path + index):
-                        print '...Success'
-                    else:
-                        print '...Fail'
-            
-            print "\nStart Upload -"
-            for index in upload_list:
-                if local_full_list[index]['type'] == 'dir':
-                    self.RNFS.uploadFile(index)
-                else:
-                    print "Upload file: " + index
-                    if self.RNFS.uploadFile(index, self.local_path + index):
-                        print '...Success'
-                    else:
-                        print '...Fail'
-                        
-        else:
-            print 'Login Failed'
-            sys.exit()
+'''
+Complete Sync
+'''
+class ComleteSync(Thread):
+    def __init__(self, ra, ld, dm):
+        Thread.__init__(self)
+        
+        self.ra = ra
+        self.ld = ld
+        self.dm = dm
     
-    '''
-    Run Client
-    '''
     def run(self):
-        self.completeSync()
-#        self.notifier.loop()
+        print "CS ... Start"
+        while(1):
+            time.sleep(self.dm.config['sync_time'])
+            self.handler()
+    
+    def handler(self):
+        if self.ra.login():
+            self.dm.saveToken(self.ra.config['token'])
+        else:
+            print self.ra.getStatus()
+            print self.ra.getResult()
+            print 'CS .. Exit'
+            sys.exit()
+        
+        if(self.ra.getUser()):
+            self.dm.user_info = self.ra.getResult()
+            print "CS ... %s - %.2f / %.2f / %.2f" % (
+                self.dm.user_info['username'],
+                self.dm.user_info['used']/1024/1024,
+                self.dm.user_info['capacity']/1024/1024,
+                self.dm.user_info['upload_limit']/1024/1024
+            )
+            print "CS ... %s" % self.dm.config['token']
+            
+        # Get server list
+        if(self.ra.getList()):
+            server_list = self.ra.getResult()
+            server_list.pop('/')
+            server_index = []
+            for index in server_list.keys():
+                server_index.append(index.encode('utf-8'))
+
+        # Get local list
+        local_list = self.ld.getLocalList()
+        local_index = local_list.keys()
+
+        # Create list
+        identical_index = list(set(server_index).intersection(set(local_index)))
+        download_index = list(set(server_index).difference(set(local_index)))
+        upload_index = list(set(local_index).difference(set(server_index)))
+        
+        '''
+        Do something
+        '''
+
+        download_index.sort()
+        upload_index.sort()
+        
+        self.dm.server_list = server_list
+        self.dm.local_list = local_list
+
+        self.dm.download_index += deque(download_index)
+        self.dm.upload_index += deque(upload_index)
 
 if __name__ == '__main__':
-    R = RNFileSystemClient()
-    R.run()
+    # Init Data Manage
+    dm = DataManage()
     
+    # Init RNFileSystem API & Local Disk
+    ra = RNFileSystemSDK.API(dm.config)
+    ld = CustomTools.FileHandler(dm.config['root'])
+
+    # Init Download Handler & Upload Handler
+    dh = UDModel.DownloadHandler(ra, dm)
+    uh = UDModel.UploadHandler(ra, dm)
+
+    # Init CS, LP, EL
+    cs = ComleteSync(ra, ld, dm)
+    lp = ServerEvent.LongPolling(dm, ra, dh)
+    el = FileEvent.EventListener(dm, ra, uh)
+    
+    # Start Complete Sync
+    cs.handler()
+    dh.start()
+    uh.start()
+    
+    while(dh.isAlive() or uh.isAlive()):
+        time.sleep(1)
+    
+    # Start Thread
+    cs.start()
+    lp.start()
+    el.start()
