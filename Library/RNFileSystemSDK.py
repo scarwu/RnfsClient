@@ -6,13 +6,27 @@ import random
 import urllib2
 import httplib
 import hashlib
+import ConfigParser
 
 class API():
     def __init__(self, config):
         self.config = config
+        
+        self.username = config['username']
+        self.password = config['password']
+        self.token = config['token']
+        
+        self.host = config['host']
+        self.port = config['port']
+        self.ssl = config['ssl']
+        
         self.status = 0
         self.result = None
         self.error_count = 0
+        
+        # Config Parser
+        self.config_parser = ConfigParser.RawConfigParser()
+        self.config_parser.read(self.config['config_path'])
 
     def __encode(self, data):
         return json.dumps(data, separators=(',', ':'))
@@ -27,10 +41,10 @@ class API():
                 return data
 
     def __getConnectInstance(self, alive_time = None):
-        if self.config['ssl']:
-            return httplib.HTTPSConnection(self.config['host'], self.config['port'], timeout=alive_time)
+        if self.ssl:
+            return httplib.HTTPSConnection(self.host, self.port, timeout=alive_time)
         else:
-            return httplib.HTTPConnection(self.config['host'], self.config['port'], timeout=alive_time)
+            return httplib.HTTPConnection(self.host, self.port, timeout=alive_time)
 
     def getResult(self):
         return self.result
@@ -44,7 +58,7 @@ class API():
     def __updateToken(self):
         conn = self.__getConnectInstance()
         conn.request('PUT', '/auth', None, {
-            'Access-Token': self.config['token'],
+            'Access-Token': self.token,
             'Content-Length': 0 # FIX Nginx 411 Length Required Error
         })
         
@@ -70,13 +84,15 @@ class API():
         conn.close()
         
         if response.status == 200:
-            self.config['token'] = self.result['token']
+            self.token = self.result['token']
+            self.config_parser.set('info', 'token', self.token)
+            self.config_parser.write(open(self.config['config_path'], 'wb'))
 
         return response.status == 200
     
     def logout(self):
         conn = self.__getConnectInstance()
-        conn.request('DELETE', '/auth', None, {'Access-Token': self.config['token']})
+        conn.request('DELETE', '/auth', None, {'Access-Token': self.token})
         
         response = conn.getresponse()
         self.result = self.__decode(response.read())
@@ -90,96 +106,131 @@ class API():
     User API
     '''
     def getUser(self):
-        conn = self.__getConnectInstance()
-        conn.request('GET', '/user/'+self.config['username'], None, {'Access-Token': self.config['token']})
-        
-        response = conn.getresponse()
-        self.result = self.__decode(response.read())
-        self.status = response.status
-        
-        conn.close()
-        
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance()
+            conn.request('GET', '/user/'+self.config['username'], None, {'Access-Token': self.token})
+            
+            response = conn.getresponse()
+            self.result = self.__decode(response.read())
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
+
         return response.status == 200
     
     '''
     File API
     '''
     def getList(self):
-        conn = self.__getConnectInstance()
-        conn.request('GET', '/file', None, {'Access-Token': self.config['token']})
-        
-        response = conn.getresponse()
-        self.result = self.__decode(response.read())
-        self.status = response.status
-        
-        conn.close()
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance()
+            conn.request('GET', '/file', None, {'Access-Token': self.token})
+            
+            response = conn.getresponse()
+            self.result = self.__decode(response.read())
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
         
         return response.status == 200
     
     def downloadFile(self, server_path, local_path):
-        conn = self.__getConnectInstance()
-        conn.request('GET', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.config['token']})
-        
-        response = conn.getresponse()
-
-        if response.status == 200:
-            os.path.dirname(local_path)
-            file(local_path,"wb").write(response.read())
-            self.result = None
-        else:
-            self.result = self.__decode(response.read())
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance()
+            conn.request('GET', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.token})
             
-        self.status = response.status
-
-        conn.close()
+            response = conn.getresponse()
+    
+            if response.status == 200:
+                os.path.dirname(local_path)
+                file(local_path,"wb").write(response.read())
+                self.result = None
+            else:
+                self.result = self.__decode(response.read())
+                
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
         
         return response.status == 200
     
     def uploadFile(self, server_path, local_path = None):
-        conn = self.__getConnectInstance()
-        if local_path == None:
-            conn.request('POST', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.config['token']})
-        else:
-            m = hashlib.md5()
-            m.update('%f' % random.random())
-            bundary = m.hexdigest()
-            body = []
-
-            file_content = file(local_path, 'rb').read()
-
-            body.extend([
-                '--' + bundary,
-                'Content-Disposition: form-data; name="file"; filename="%s"' % os.path.basename(local_path),
-                'Content-Type: application/octet-stream',
-                '',
-                file_content,
-                '--' + bundary + '--',
-                ''
-            ])
-
-            conn.request('POST', urllib2.quote('/file/' + server_path.lstrip('/')), '\r\n'.join(body), {
-                'Accept': 'text/plain',
-                'Access-Token': self.config['token'],
-                'Content-Type': 'multipart/form-data; boundary=%s' % bundary
-            })
-        
-        response = conn.getresponse()
-        self.result = self.__decode(response.read())
-        self.status = response.status
-        
-        conn.close()
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance()
+            if local_path == None:
+                conn.request('POST', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.token})
+            else:
+                m = hashlib.md5()
+                m.update('%f' % random.random())
+                bundary = m.hexdigest()
+                body = []
+    
+                file_content = file(local_path, 'rb').read()
+    
+                body.extend([
+                    '--' + bundary,
+                    'Content-Disposition: form-data; name="file"; filename="%s"' % os.path.basename(local_path),
+                    'Content-Type: application/octet-stream',
+                    '',
+                    file_content,
+                    '--' + bundary + '--',
+                    ''
+                ])
+    
+                conn.request('POST', urllib2.quote('/file/' + server_path.lstrip('/')), '\r\n'.join(body), {
+                    'Accept': 'text/plain',
+                    'Access-Token': self.token,
+                    'Content-Type': 'multipart/form-data; boundary=%s' % bundary
+                })
+            
+            response = conn.getresponse()
+            self.result = self.__decode(response.read())
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
         
         return response.status == 200
     
     def deleteFile(self, server_path):
-        conn = self.__getConnectInstance()
-        conn.request('DELETE', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.config['token']})
-        
-        response = conn.getresponse()
-        self.result = self.__decode(response.read())
-        self.status = response.status
-        
-        conn.close()
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance()
+            conn.request('DELETE', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.token})
+            
+            response = conn.getresponse()
+            self.result = self.__decode(response.read())
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
         
         return response.status == 200
     
@@ -187,13 +238,20 @@ class API():
     Sync API
     '''
     def sendPolling(self, alive_time):
-        conn = self.__getConnectInstance(alive_time)
-        conn.request('POST', '/sync/'+self.config['username'], None, {'Access-Token': self.config['token']})
-        
-        response = conn.getresponse()
-        self.result = self.__decode(response.read())
-        self.status = response.status
-        
-        conn.close()
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance(alive_time)
+            conn.request('POST', '/sync/'+self.config['username'], None, {'Access-Token': self.token})
+            
+            response = conn.getresponse()
+            self.result = self.__decode(response.read())
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
         
         return response.status == 200

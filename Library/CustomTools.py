@@ -2,14 +2,40 @@
 
 import os
 import hashlib
+import ConfigParser
+from collections import deque
 
-class FileHandler():
-    def __init__(self, root):
-        self.root = root
+class LocalManage():
+    def __init__(self):
+        self.config_path = 'RNFileSystemClient.ini'
+        if not os.path.exists(self.config_path):
+            file(self.config_path, 'wb').write(file('RNFileSystemClient.sample.ini', 'rb').read())
+        
+        self.config_parser = ConfigParser.RawConfigParser()
+        self.config_parser.read(self.config_path)
+        self.config = {
+            'config_path': self.config_path,
+            'root': self.config_parser.get('local', 'root'),
+            'host': self.config_parser.get('server', 'host'),
+            'port': self.config_parser.getint('server', 'port'),
+            'ssl': self.config_parser.getboolean('server', 'ssl'),
+            'sync_time': self.config_parser.getint('time', 'sync'),
+            'polling_time': self.config_parser.getint('time', 'polling'),
+            'username': self.config_parser.get('info', 'username'),
+            'password': self.config_parser.get('info', 'password'),
+            'token': self.config_parser.get('info', 'token')
+        }
+        
+        self.user_info = {}
+        self.server_list = {}
+        self.local_list = {}
+        
+        self.upload_index = deque([])
+        self.download_index = deque([])
         
         # Check root directory
-        if not os.path.exists(self.root):
-            os.mkdir(self.root)
+        if not os.path.exists(self.config['root']):
+            os.mkdir(self.config['root'])
     
     def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
@@ -23,7 +49,7 @@ class FileHandler():
     
     def getLocalList(self, path = ''):
         local_list = {}
-        current_path = self.root + path
+        current_path = self.config['root'] + path
         for dirname in os.listdir(current_path):
             if os.path.isdir(current_path + '/' + dirname):
                 local_list[path + '/' + dirname] = {
@@ -39,7 +65,7 @@ class FileHandler():
         return local_list
     
     def removeDir(self, dirname):
-        for path in (os.path.join(dirname, filename) for filename in os.listdir(self.root + '/' + dirname)):
+        for path in (os.path.join(dirname, filename) for filename in os.listdir(self.config['root'] + '/' + dirname)):
             if os.path.isdir(path):
                 self.removeDir(path)
             elif os.path.exists(path):
@@ -53,6 +79,6 @@ class FileHandler():
             return None
         else:
             return {
-                'hash': self.md5Checksum(self.root + '/' + path),
-                'size': os.path.getsize(self.root + '/' + path)
+                'hash': self.md5Checksum(self.config['root'] + '/' + path),
+                'size': os.path.getsize(self.config['root'] + '/' + path)
             }
