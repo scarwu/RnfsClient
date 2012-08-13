@@ -5,7 +5,7 @@ import sys
 from threading import Thread
 
 class UploadHandler(Thread):
-    def __init__(self, ra, dm):
+    def __init__(self, dm, ra):
         Thread.__init__(self)
         
         self.ra = ra
@@ -24,26 +24,26 @@ class UploadHandler(Thread):
             if self.dm.local_list[index]['type'] == 'dir':
                 self.ra.uploadFile(index)
             else:
-                print "Transfer: %s" % index
+                print "<<< TX: %s" % index
                 if not self.ra.uploadFile(index, self.dm.config['root'] + index):
                     if self.ra.getStatus() == 401:
-                        print 'Transfer: Retry %s' % index
+                        print '<<< TX: Retry %s' % index
                         if self.ra.login():
                             self.dm.saveToken(self.ra.config['token'])
                             if not self.ra.uploadFile(index, self.dm.config['root'] + index):
-                                print 'Transfer: Fail %s' % self.ra.getStatus()
+                                print '<<< TX: Fail %s' % self.ra.getStatus()
                                 print self.ra.getResult()
                         else:
                             print self.ra.getStatus()
                             print self.ra.getResult()
-                            print 'Transfer: Exit'
+                            print '<<< TX: Exit'
                             sys.exit()
                     else:
-                        print 'Transfer: Fail %s' % self.ra.getStatus()
+                        print '<<< TX: Fail %s' % self.ra.getStatus()
                         print self.ra.getResult()
 
 class DownloadHandler(Thread):
-    def __init__(self, ra, dm):
+    def __init__(self, dm, ra):
         Thread.__init__(self)
         
         self.ra = ra
@@ -57,23 +57,23 @@ class DownloadHandler(Thread):
         while self.dm.download_index:
             index = self.dm.download_index.popleft()
             
-            if self.dm.server_list[index.decode('utf-8')]['type'] == 'dir':
+            if self.dm.server_list[index]['type'] == 'dir':
                 os.mkdir(self.dm.config['root'] + index)
             else:
-                print "Receiver: %s" % index
+                print ">>> RX: %s" % index
                 if not self.ra.downloadFile(index, self.dm.config['root'] + index):
                     if self.ra.getStatus() == 401:
-                        print 'Receiver: Retry %s' % index
+                        print '>>> RX: Retry %s' % index
                         if self.ra.login():
                             self.dm.saveToken(self.ra.config['token'])
                             if not self.ra.downloadFile(index, self.dm.config['root'] + index):
-                                print 'Receiver ... Fail %s' % self.ra.getStatus()
+                                print '>>> RX ... Fail %s' % self.ra.getStatus()
                                 print self.ra.getResult()
                         else:
                             print self.ra.getStatus()
                             print self.ra.getResult()
-                            print 'Receiver: Exit'
+                            print '>>> RX: Exit'
                             sys.exit()
                     else:
-                        print 'Receiver: Fail %s' % self.ra.getStatus()
+                        print '>>> RX: Fail %s' % self.ra.getStatus()
                         print self.ra.getResult()

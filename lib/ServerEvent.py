@@ -4,6 +4,8 @@ import os
 import sys
 from threading import Thread
 
+import UDModel
+
 class LongPolling(Thread):
     def __init__(self, dm ,ra, dh):
         Thread.__init__(self)
@@ -20,13 +22,14 @@ class LongPolling(Thread):
                     os.mkdir(self.dm.config['root'] + callback['path'])
             elif callback['type'] == 'file':
                 print "LP (F) CREATE %s" % callback['path']
-                self.dm.download_list[callback['path']] = {
+                self.dm.server_list[callback['path']] = {
                     'type': 'file',
-#                    'size': callback['size'],
+                    'size': callback['size'],
                     'hash': callback['hash'],
                 }
                 self.dm.download_index.append(callback['path'])
                 if not self.dh.isAlive():
+                    self.dh = UDModel.DownloadHandler(self.dm, self.ra)
                     self.dh.start()
                 
         elif callback['action'] == 'update':

@@ -55,20 +55,31 @@ class DataManage():
 Complete Sync
 '''
 class ComleteSync(Thread):
-    def __init__(self, ra, ld, dm):
+    def __init__(self, dm, ra, ld, dh, uh):
         Thread.__init__(self)
         
+        self.dm = dm
         self.ra = ra
         self.ld = ld
-        self.dm = dm
+        self.dh = dh
+        self.uh = uh
     
     def run(self):
         print "CS ... Start"
         while(1):
             time.sleep(self.dm.config['sync_time'])
+            self.differ()
             self.handler()
     
     def handler(self):
+        if not self.dh.isAlive():
+            self.dh = UDModel.DownloadHandler(self.dm, self.ra)
+            self.dh.start()
+        if not self.uh.isAlive():
+            self.uh = UDModel.UploadHandler(self.dm, self.ra)
+            self.uh.start()
+    
+    def differ(self):
         if self.ra.login():
             self.dm.saveToken(self.ra.config['token'])
         else:
@@ -89,11 +100,16 @@ class ComleteSync(Thread):
             
         # Get server list
         if(self.ra.getList()):
-            server_list = self.ra.getResult()
-            server_list.pop('/')
+            server_temp_list = self.ra.getResult()
+            server_temp_list.pop('/')
+            
+            server_list = {}
+            for index in self.ra.getResult():
+                server_list[index.encode('utf-8')] = server_temp_list[index]
+            
             server_index = []
             for index in server_list.keys():
-                server_index.append(index.encode('utf-8'))
+                server_index.append(index)
 
         # Get local list
         local_list = self.ld.getLocalList()
@@ -126,23 +142,28 @@ if __name__ == '__main__':
     ld = CustomTools.FileHandler(dm.config['root'])
 
     # Init Download Handler & Upload Handler
-    dh = UDModel.DownloadHandler(ra, dm)
-    uh = UDModel.UploadHandler(ra, dm)
+    dh = UDModel.DownloadHandler(dm, ra)
+    uh = UDModel.UploadHandler(dm, ra)
 
-    # Init CS, LP, EL
-    cs = ComleteSync(ra, ld, dm)
-    lp = ServerEvent.LongPolling(dm, ra, dh)
-    el = FileEvent.EventListener(dm, ra, uh)
+    # Init CS
+    cs = ComleteSync(dm, ra, ld, dh, uh)
     
     # Start Complete Sync
-    cs.handler()
+    cs.differ()
+    
     dh.start()
     uh.start()
     
-    while(dh.isAlive() or uh.isAlive()):
-        time.sleep(1)
+    dh.join()
+    uh.join()
+    
+    time.sleep(1)
+    
+    # Init LP, EL
+    lp = ServerEvent.LongPolling(dm, ra, dh)
+    el = FileEvent.EventListener(dm, ra, uh)
     
     # Start Thread
-    cs.start()
-    lp.start()
-    el.start()
+#    cs.start()
+#    lp.start()
+#    el.start()

@@ -4,7 +4,8 @@ import os
 import hashlib
 import pyinotify
 from threading import Thread
-from collections import deque
+
+import UDModel
 
 class EventListener(Thread):
     def __init__(self, dm ,ra, uh):
@@ -60,6 +61,7 @@ class EventHandler(pyinotify.ProcessEvent):
             }
             self.dm.upload_index.append(path)
             if not self.uh.isAlive():
+                self.uh = UDModel.UploadHandler(self.dm, self.ra)
                 self.uh.start()
         else:
             print "EL (F) CREATE %s" % path
@@ -70,6 +72,7 @@ class EventHandler(pyinotify.ProcessEvent):
             }
             self.dm.upload_index.append(path)
             if not self.uh.isAlive():
+                self.uh = UDModel.UploadHandler(self.dm, self.ra)
                 self.uh.start()
             
 #    def process_IN_MODIFY(self, event):
