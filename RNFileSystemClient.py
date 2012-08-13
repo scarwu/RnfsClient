@@ -8,7 +8,7 @@ import time
 from threading import Thread
 from collections import deque
 
-sys.path.append('./lib')
+sys.path.append('./Library')
 
 import RNFileSystemSDK
 import CustomTools
@@ -164,6 +164,6 @@ if __name__ == '__main__':
     el = FileEvent.EventListener(dm, ra, uh)
     
     # Start Thread
-#    cs.start()
-#    lp.start()
-#    el.start()
+    cs.start()
+    lp.start()
+    el.start()

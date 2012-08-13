@@ -13,10 +13,7 @@ class API():
         self.status = 0
         self.result = None
         self.error_count = 0
-    
-    '''
-    JSON Encoder
-    '''
+
     def __encode(self, data):
         return json.dumps(data, separators=(',', ':'))
     
@@ -46,7 +43,10 @@ class API():
     '''
     def __updateToken(self):
         conn = self.__getConnectInstance()
-        conn.request('PUT', '/auth', None, {'Access-Token': self.config['token']})
+        conn.request('PUT', '/auth', None, {
+            'Access-Token': self.config['token'],
+            'Content-Length': 0 # FIX Nginx 411 Length Required Error
+        })
         
         response = conn.getresponse()
         self.result = self.__decode(response.read())
