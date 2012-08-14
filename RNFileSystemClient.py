@@ -49,13 +49,11 @@ class ComleteSync(Thread):
                 self.lm.user_info['upload_limit']/1024/1024
             )
             print "CS ... %s" % self.ra.token
-            
-        # Get local list cache
-
+        
+        # Get cache list
         cache_list = {}
         for index in self.lm.cache_list:
             cache_list[index.encode('utf-8')] = self.lm.cache_list[index]
-
         cache_index = set(cache_list.keys())
 
         # Get local list
@@ -71,20 +69,18 @@ class ComleteSync(Thread):
             server_index = set(server_list.keys())
         
         # Create index Part Cache-Local
-        identical_index_cl = cache_index.intersection(local_index)
         upload_index_cl = local_index.difference(cache_index)
         delete_index_cl = cache_index.difference(local_index)
+        
+        # Create index Part Cache-Server
+        delete_index_cs = cache_index.difference(server_index)
+        download_index_cs = server_index.difference(cache_index)
         
         # Create index Part Local-Server
         identical_index_ls = server_index.intersection(local_index)
         upload_index_ls = local_index.difference(server_index)
         download_index_ls = server_index.difference(local_index)
-        
-        # Create index Part Cache-Server
-        identical_index_cs = server_index.intersection(cache_index)
-        delete_index_cs = cache_index.difference(server_index)
-        download_index_cs = server_index.difference(cache_index)
-        
+
         # Union all index
         total_delete_index = delete_index_cl.union(delete_index_cs)
         total_update_index = upload_index_cl.union(upload_index_ls)
@@ -95,7 +91,7 @@ class ComleteSync(Thread):
         server_delete_index = list(total_download_index.intersection(total_delete_index))
         
         total_update_index = list(total_update_index.difference(total_delete_index))
-        total_download_index = list(total_delete_index.difference(total_delete_index))
+        total_download_index = list(total_download_index.difference(total_delete_index))
         
         local_delete_index.sort()
         server_delete_index.sort()
@@ -114,8 +110,6 @@ class ComleteSync(Thread):
             print 'Delete Server File: %s' % index
             server_list.pop(index)
             self.ra.deleteFile(index)
-        
-        self.lm.saveListCache()
         
         self.lm.server_list = server_list
         self.lm.local_list = local_list
@@ -160,6 +154,6 @@ if __name__ == '__main__':
     el = FileEvent.EventListener(lm, ra, uh)
     
     # Start Thread
-#    cs.start()
-#    lp.start()
-#    el.start()
+    cs.start()
+    lp.start()
+    el.start()

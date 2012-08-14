@@ -11,10 +11,8 @@ class UploadHandler(Thread):
         self.lm = lm
     
     def run(self):
-        self.lm.is_upload = True
         if self.lm.upload_index:
             self.handler()
-        self.lm.is_upload = False
     
     def handler(self):
         while self.lm.upload_index:

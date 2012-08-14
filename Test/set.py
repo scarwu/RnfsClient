@@ -15,7 +15,6 @@ sd = dl.intersection(de)
 fu = ul.difference(de)
 fd = dl.difference(de)
 
-
 print "         cache: %r" % c
 print "         local: %r" % l
 print "        server: %r" % s
