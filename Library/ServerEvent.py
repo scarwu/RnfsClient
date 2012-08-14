@@ -81,6 +81,7 @@ class LongPolling(Thread):
 
             if self.ra.getStatus() == 200:
                 self.handler(self.ra.getResult())
+                self.lm.saveListCache()
                     
             elif self.ra.getStatus() == 408:
                 print 'LP ... Reconnect'
