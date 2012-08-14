@@ -149,6 +149,9 @@ if __name__ == '__main__':
     dh.join()
     uh.join()
     
+    lm.local_list = lm.getLocalList()
+    lm.saveListCache()
+    
     # Init LP, EL
     lp = ServerEvent.LongPolling(lm, ra, dh)
     el = FileEvent.EventListener(lm, ra, uh)

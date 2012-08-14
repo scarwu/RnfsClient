@@ -55,6 +55,8 @@ class EventHandler(pyinotify.ProcessEvent):
         print "EL (X) DELETE %s" % path
         self.ra.deleteFile(path);
         
+        self.lm.saveListCache()
+        
     def process_IN_CREATE(self, event):
         path = event.pathname[len(self.lm.config['root']):]
         if os.path.isdir(event.pathname):
@@ -83,6 +85,8 @@ class EventHandler(pyinotify.ProcessEvent):
             if not self.uh.isAlive():
                 self.uh = UDModel.UploadHandler(self.lm, self.ra)
                 self.uh.start()
+                
+        self.lm.saveListCache()
             
 #    def process_IN_MODIFY(self, event):
 #        path = event.pathname[len(self.lm.config['root']):]
