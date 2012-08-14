@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import sys
 import time
 from threading import Thread
@@ -49,40 +50,80 @@ class ComleteSync(Thread):
             )
             print "CS ... %s" % self.ra.token
             
-        # Get server list
-        if(self.ra.getList()):
-            server_temp_list = self.ra.getResult()
-            server_temp_list.pop('/')
-            
-            server_list = {}
-            for index in self.ra.getResult():
-                server_list[index.encode('utf-8')] = server_temp_list[index]
-            
-            server_index = []
-            for index in server_list.keys():
-                server_index.append(index)
+        # Get local list cache
+
+        cache_list = {}
+        for index in self.lm.cache_list:
+            cache_list[index.encode('utf-8')] = self.lm.cache_list[index]
+
+        cache_index = set(cache_list.keys())
 
         # Get local list
         local_list = self.lm.getLocalList()
-        local_index = local_list.keys()
-
-        # Create list
-        identical_index = list(set(server_index).intersection(set(local_index)))
-        download_index = list(set(server_index).difference(set(local_index)))
-        upload_index = list(set(local_index).difference(set(server_index)))
+        local_index = set(local_list.keys())
         
-        '''
-        Do something
-        '''
-
-        download_index.sort()
-        upload_index.sort()
+        # Get server list
+        if(self.ra.getList()):
+            server_list = {}
+            for index in self.ra.getResult().keys():
+                server_list[index.encode('utf-8')] = self.ra.getResult()[index]
+            server_list.pop('/')
+            server_index = set(server_list.keys())
+        
+        # Create index Part Cache-Local
+        identical_index_cl = cache_index.intersection(local_index)
+        upload_index_cl = local_index.difference(cache_index)
+        delete_index_cl = cache_index.difference(local_index)
+        
+        # Create index Part Local-Server
+        identical_index_ls = server_index.intersection(local_index)
+        upload_index_ls = local_index.difference(server_index)
+        download_index_ls = server_index.difference(local_index)
+        
+        # Create index Part Cache-Server
+        identical_index_cs = server_index.intersection(cache_index)
+        delete_index_cs = cache_index.difference(server_index)
+        download_index_cs = server_index.difference(cache_index)
+        
+        # Union all index
+        total_delete_index = delete_index_cl.union(delete_index_cs)
+        total_update_index = upload_index_cl.union(upload_index_ls)
+        total_download_index = download_index_ls.union(download_index_cs)
+        
+        # Final index
+        local_delete_index = list(total_update_index.intersection(total_delete_index))
+        server_delete_index = list(total_download_index.intersection(total_delete_index))
+        
+        total_update_index = list(total_update_index.difference(total_delete_index))
+        total_download_index = list(total_delete_index.difference(total_delete_index))
+        
+        local_delete_index.sort()
+        server_delete_index.sort()
+        total_download_index.sort()
+        total_update_index.sort()
+        
+        for index in local_delete_index:
+            print 'Delete Local File: %s' % index
+            local_list.pop(index)
+            if local_list[index]['type'] == 'dir':
+                os.rmdir(self.dm.config['root'] + '/' + index)
+            else:
+                os.remove(self.dm.config['root'] + '/' + index)
+        
+        for index in server_delete_index:
+            print 'Delete Server File: %s' % index
+            server_list.pop(index)
+            self.ra.deleteFile(index)
+        
+        self.lm.saveListCache()
         
         self.lm.server_list = server_list
         self.lm.local_list = local_list
 
-        self.lm.download_index += deque(download_index)
-        self.lm.upload_index += deque(upload_index)
+        self.lm.download_index += deque(total_download_index)
+        self.lm.upload_index += deque(total_update_index)
+        
+        self.lm.saveListCache()
 
 if __name__ == '__main__':
     # Init Data Manage
@@ -113,8 +154,6 @@ if __name__ == '__main__':
     
     dh.join()
     uh.join()
-    
-    time.sleep(1)
     
     # Init LP, EL
     lp = ServerEvent.LongPolling(lm, ra, dh)

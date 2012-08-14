@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import json
 import hashlib
 import ConfigParser
 from collections import deque
@@ -16,6 +17,7 @@ class LocalManage():
         self.config = {
             'config_path': self.config_path,
             'root': self.config_parser.get('local', 'root'),
+            'cache_list': self.config_parser.get('local', 'cache_list'),
             'host': self.config_parser.get('server', 'host'),
             'port': self.config_parser.getint('server', 'port'),
             'ssl': self.config_parser.getboolean('server', 'ssl'),
@@ -26,17 +28,27 @@ class LocalManage():
             'token': self.config_parser.get('info', 'token')
         }
         
+        # Check root directory
+        if not os.path.exists(self.config['root']):
+            os.mkdir(self.config['root'])
+            
+        # Check root directory
+        if not os.path.exists(self.config['cache_list']):
+            file(self.config['cache_list'], 'wb').write("{}")
+            self.cache_list = {}
+        else:
+            self.cache_list = json.loads(file(self.config['cache_list'], 'rb').read())
+
         self.user_info = {}
         self.server_list = {}
         self.local_list = {}
         
         self.upload_index = deque([])
         self.download_index = deque([])
-        
-        # Check root directory
-        if not os.path.exists(self.config['root']):
-            os.mkdir(self.config['root'])
     
+    def saveListCache(self):
+        file(self.config['cache_list'], 'wb').write(json.dumps(self.local_list, separators=(',', ':')))
+
     def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
         m = hashlib.md5()
@@ -82,3 +94,4 @@ class LocalManage():
                 'hash': self.md5Checksum(self.config['root'] + '/' + path),
                 'size': os.path.getsize(self.config['root'] + '/' + path)
             }
+    
