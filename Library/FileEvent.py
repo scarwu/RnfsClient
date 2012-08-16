@@ -49,19 +49,19 @@ class EventHandler(pyinotify.ProcessEvent):
     
     def process_IN_DELETE(self, event):
         path = event.pathname[len(self.lm.config['root']):]
-        self.lm.local_list.pop(path)
-        self.lm.server_list.pop(path)
-        
         print "EL (X) DELETE %s" % path
         self.ra.deleteFile(path);
         
+        if path in self.lm.file_list:
+            self.lm.file_list.pop(path)
+
         self.lm.saveListCache()
         
     def process_IN_CREATE(self, event):
         path = event.pathname[len(self.lm.config['root']):]
+        
         if os.path.isdir(event.pathname):
-            self.lm.local_list[path] = {'type': 'dir'}
-            self.lm.server_list[path] = {'type': 'dir'}
+            self.lm.file_list[path] = {'type': 'dir'}
             
             print "EL (D) CREATE %s" % path
             self.lm.upload_index.append(path)
@@ -69,12 +69,7 @@ class EventHandler(pyinotify.ProcessEvent):
                 self.uh = UDModel.UploadHandler(self.lm, self.ra)
                 self.uh.start()
         else:
-            self.lm.local_list[path] = {
-                'type': 'file',
-                'hash': self.md5Checksum(event.pathname),
-                'size': os.path.getsize(event.pathname)
-            }
-            self.lm.server_list[path] = {
+            self.lm.file_list[path] = {
                 'type': 'file',
                 'hash': self.md5Checksum(event.pathname),
                 'size': os.path.getsize(event.pathname)
