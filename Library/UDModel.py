@@ -18,7 +18,7 @@ class UploadHandler(Thread):
         while self.lm.upload_index:
             index = self.lm.upload_index.popleft()
             
-            if self.lm.local_list[index]['type'] == 'dir':
+            if self.lm.file_list[index]['type'] == 'dir':
                 self.ra.uploadFile(index)
             else:
                 print "<<< TX: %s" % index
@@ -41,7 +41,7 @@ class DownloadHandler(Thread):
         while self.lm.download_index:
             index = self.lm.download_index.popleft()
             
-            if self.lm.server_list[index]['type'] == 'dir':
+            if self.lm.file_list[index]['type'] == 'dir':
                 os.mkdir(self.lm.config['root'] + index)
             else:
                 print ">>> RX: %s" % index

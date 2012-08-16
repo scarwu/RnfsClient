@@ -40,11 +40,11 @@ class API():
             except:
                 return data
 
-    def __getConnectInstance(self, alive_time = None):
+    def __getConnectInstance(self):
         if self.ssl:
-            return httplib.HTTPSConnection(self.host, self.port, timeout=alive_time)
+            return httplib.HTTPSConnection(self.host, self.port)
         else:
-            return httplib.HTTPConnection(self.host, self.port, timeout=alive_time)
+            return httplib.HTTPConnection(self.host, self.port)
 
     def getResult(self):
         return self.result
@@ -237,10 +237,10 @@ class API():
     '''
     Sync API
     '''
-    def sendPolling(self, alive_time):
+    def sendPolling(self):
         self.error_count = 0
         while(self.error_count < 2):
-            conn = self.__getConnectInstance(alive_time)
+            conn = self.__getConnectInstance()
             conn.request('POST', '/sync/'+self.config['username'], None, {'Access-Token': self.token})
             
             response = conn.getresponse()

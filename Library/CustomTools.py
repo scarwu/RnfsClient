@@ -18,11 +18,13 @@ class LocalManage():
             'config_path': self.config_path,
             'root': self.config_parser.get('local', 'root'),
             'cache_list': self.config_parser.get('local', 'cache_list'),
+            
             'host': self.config_parser.get('server', 'host'),
             'port': self.config_parser.getint('server', 'port'),
             'ssl': self.config_parser.getboolean('server', 'ssl'),
+            
             'sync_time': self.config_parser.getint('time', 'sync'),
-            'polling_time': self.config_parser.getint('time', 'polling'),
+            
             'username': self.config_parser.get('info', 'username'),
             'password': self.config_parser.get('info', 'password'),
             'token': self.config_parser.get('info', 'token')
@@ -40,14 +42,13 @@ class LocalManage():
             self.cache_list = json.loads(file(self.config['cache_list'], 'rb').read())
 
         self.user_info = {}
-        self.server_list = {}
-        self.local_list = {}
-        
+        self.file_list = {}
+
         self.upload_index = deque([])
         self.download_index = deque([])
     
     def saveListCache(self):
-        file(self.config['cache_list'], 'wb').write(json.dumps(self.local_list, separators=(',', ':')))
+        file(self.config['cache_list'], 'wb').write(json.dumps(self.file_list, separators=(',', ':')))
 
     def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
@@ -75,16 +76,6 @@ class LocalManage():
                     'size': os.path.getsize(current_path + '/' + dirname)
                 }
         return local_list
-    
-    def removeDir(self, dirname):
-        for path in (os.path.join(dirname, filename) for filename in os.listdir(self.config['root'] + '/' + dirname)):
-            if os.path.isdir(path):
-                self.removeDir(path)
-            elif os.path.exists(path):
-                    os.unlink(path)
-                    
-        if os.path.exists(dirname):
-            os.rmdir(dirname)
     
     def fileInfo(self, path):
         if not os.path.exists(path):
