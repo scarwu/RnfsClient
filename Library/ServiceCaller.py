@@ -6,7 +6,6 @@ import random
 import urllib2
 import httplib
 import hashlib
-import ConfigParser
 
 class API():
     def __init__(self, config):
@@ -18,6 +17,12 @@ class API():
         self.host = config['host']
         self.port = config['port']
         self.ssl = config['ssl']
+
+        if os.path.exists(self.root + '/token') == False:
+            file(self.root + '/token', 'wb').write('')
+            self.token = 0
+        else:
+            self.token = file(self.root + '/token', 'rb').read()
         
         self.status = 0
         self.result = None
@@ -69,8 +74,8 @@ class API():
             
         conn = self.__getConnectInstance()
         conn.request('POST', '/auth', self.__encode({
-            'username': self.config['username'],
-            'password': self.config['password']
+            'username': self.username,
+            'password': self.password
         }))
         
         response = conn.getresponse()
@@ -80,8 +85,7 @@ class API():
         
         if response.status == 200:
             self.token = self.result['token']
-            self.config_parser.set('info', 'token', self.token)
-            self.config_parser.write(open(self.config['config_path'], 'wb'))
+            file(self.root + '/token', 'wb').write(self.token)
 
         return response.status == 200
     

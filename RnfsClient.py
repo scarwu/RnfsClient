@@ -121,10 +121,10 @@ class CompleteSync(Thread):
 if __name__ == '__main__':
     is_loop = False
     
-    config_path = 'RNFileSystemClient.ini'
+    config_path = 'RnfsClient.ini'
     
     if not os.path.exists(config_path):
-        file(config_path, 'wb').write(file('RNFileSystemClient.sample.ini', 'rb').read())
+        file(config_path, 'wb').write(file('RnfsClient.default.ini', 'rb').read())
     
     config_parser = ConfigParser.RawConfigParser()
     config_parser.read(config_path)
