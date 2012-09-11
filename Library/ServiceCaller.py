@@ -10,11 +10,10 @@ import ConfigParser
 
 class API():
     def __init__(self, config):
-        self.config = config
+        self.root = config['root']
         
         self.username = config['username']
         self.password = config['password']
-        self.token = config['token']
         
         self.host = config['host']
         self.port = config['port']
@@ -23,10 +22,6 @@ class API():
         self.status = 0
         self.result = None
         self.error_count = 0
-        
-        # Config Parser
-        self.config_parser = ConfigParser.RawConfigParser()
-        self.config_parser.read(self.config['config_path'])
 
     def __encode(self, data):
         return json.dumps(data, separators=(',', ':'))
@@ -123,6 +118,29 @@ class API():
                 break
 
         return response.status == 200
+    
+    '''
+    File Information API
+    '''
+    def getFileInfo(self, path):
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance()
+            conn.request('GET', urllib2.quote('/fileinfo/' + path.lstrip('/')), None, {'Access-Token': self.token})
+            
+            response = conn.getresponse()
+            self.result = self.__decode(response.read())
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
+        
+        return response.status == 200
+        
     
     '''
     File API

@@ -6,13 +6,15 @@ import sys
 import time
 from threading import Thread
 from collections import deque
+import ConfigParser
 
 sys.path.append('./Library')
 
-import RNFileSystemSDK
+import ServiceCaller
 import CustomTools
 import ServerEvent
 import FileEvent
+import Database
 import UDModel
 
 class CompleteSync(Thread):
@@ -74,6 +76,7 @@ class CompleteSync(Thread):
             server_index = set(server_list.keys())
         else:
             print self.ra.getResult()
+            print 'CS ... Exit'
             sys.exit()
             
         # Delete Index
@@ -116,38 +119,72 @@ class CompleteSync(Thread):
         self.lm.download_index += deque(download_index)
         
 if __name__ == '__main__':
-    # Initialize Data Manage
-    lm = CustomTools.LocalManage()
+    is_loop = False
+    
+    config_path = 'RNFileSystemClient.ini'
+    
+    if not os.path.exists(config_path):
+        file(config_path, 'wb').write(file('RNFileSystemClient.sample.ini', 'rb').read())
+    
+    config_parser = ConfigParser.RawConfigParser()
+    config_parser.read(config_path)
+    config = {
+        'root': config_parser.get('local', 'root'),
+        'target': config_parser.get('local', 'target'),
+        
+        'host': config_parser.get('server', 'host'),
+        'port': config_parser.getint('server', 'port'),
+        'ssl': config_parser.getboolean('server', 'ssl'),
+        
+        'sync_time': config_parser.getint('time', 'sync'),
+        
+        'username': config_parser.get('info', 'username'),
+        'password': config_parser.get('info', 'password')
+    }
+    
+    if not os.path.exists(config['root']):
+        os.mkdir(config['root'])
+    
+    # Initialize DataBase
+    db = Database.Index(config['root'])
     
     # Initialize RNFileSystem API
-    ra = RNFileSystemSDK.API(lm.config)
+    api = ServiceCaller.API({
+        'root': config['root'],
+        'username': config['username'],
+        'password': config['password'],
+        'host': config['host'],
+        'port': config['port'],
+        'ssl': config['ssl']
+    })
     
     # Try Login
-    if not ra.login():
-        print ra.getStatus()
-        print ra.getResult()
-        print 'RC .. Exit'
+    if not api.login():
+        print api.getStatus()
+        print api.getResult()
+        print 'Exit'
         sys.exit()
     
-    # Initialize Download Handler & Upload Handler
-    dh = UDModel.DownloadHandler(lm, ra)
-    uh = UDModel.UploadHandler(lm, ra)
-    
-    # Initialize CS
-    cs = CompleteSync(lm, ra, dh, uh)
-    
-    # Start Complete Sync
-    cs.differ()
-    cs.handler(wait=True)
-    
-    lm.file_list = lm.getLocalList()
-    lm.saveListCache()
-    
-    # Initialize LP, EL
-    lp = ServerEvent.LongPolling(lm, ra, dh)
-    el = FileEvent.EventListener(lm, ra, uh)
-    
-    # Start Thread
-    cs.start()
-    lp.start()
-    el.start()
+#    # Initialize Download Handler & Upload Handler
+#    dh = UDModel.DownloadHandler({}, api)
+#    uh = UDModel.UploadHandler({}, api)
+#    
+#    # Initialize CS
+#    complete_sync = CompleteSync({}, api, dh, uh)
+#    
+#    # Start Complete Sync
+#    complete_sync.differ()
+#    complete_sync.handler(wait=True)
+#    
+#    lm.file_list = lm.getLocalList()
+#    lm.saveListCache()
+#    
+#    # Initialize LP, EL
+#    long_polling = ServerEvent.LongPolling({}, api, dh)
+#    file_event = FileEvent.EventListener({}, api, uh)
+#    
+#    # Start Thread
+#    if is_loop:
+#        complete_sync.start()
+#        long_polling.start()
+#        file_event.start()

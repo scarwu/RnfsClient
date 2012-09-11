@@ -19,11 +19,12 @@ class UploadHandler(Thread):
             index = self.lm.upload_index.popleft()
             
             if self.lm.file_list[index]['type'] == 'dir':
+                print "<<< TXD: %s" % index
                 self.ra.uploadFile(index)
             else:
-                print "<<< TX: %s" % index
+                print "<<< TXF: %s" % index
                 if not self.ra.uploadFile(index, self.lm.config['root'] + index):
-                    print '<<< TX: Fail %s' % self.ra.getStatus()
+                    print '<<< TXF: Fail %s' % self.ra.getStatus()
                     print self.ra.getResult()
 
 class DownloadHandler(Thread):
@@ -42,9 +43,10 @@ class DownloadHandler(Thread):
             index = self.lm.download_index.popleft()
             
             if self.lm.file_list[index]['type'] == 'dir':
+                print ">>> RXD: %s" % index
                 os.mkdir(self.lm.config['root'] + index)
             else:
-                print ">>> RX: %s" % index
+                print ">>> RXF: %s" % index
                 if not self.ra.downloadFile(index, self.lm.config['root'] + index):
-                    print '>>> RX: Fail %s' % self.ra.getStatus()
+                    print '>>> RXF: Fail %s' % self.ra.getStatus()
                     print self.ra.getResult()
