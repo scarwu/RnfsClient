@@ -45,7 +45,10 @@ class Index:
     
     # Update Index
     def upadte(self, path, data):
-        self.conn.execute('UPDATE files SET size="%s", hash="%s", version="%s" WHERE path="%s"' % (data['size'], data['hash'], data['version'], path))
+        self.conn.execute(
+            'UPDATE files SET size="%s", hash="%s", version="%s" WHERE path="%s"'
+            % (data['size'], data['hash'], data['version'], path)
+        )
         self.conn.commit()
     
     # Get Index Information
@@ -54,12 +57,9 @@ class Index:
             c = self.conn.cursor()
             c.execute('SELECT * FROM files WHERE path="%s"' % path)
             row = c.fetchone()
-            
             result = {}
             if row[1] == 'dir':
-                result[row[0]] = {
-                    'type': 'dir'
-                }
+                result[row[0]] = {'type': 'dir'}
             else:
                 result[row[0]] = {
                     'type': 'file',
@@ -67,19 +67,14 @@ class Index:
                     'hash': row[3],
                     'version': row[4],
                 }
-                    
             c.close()
-            
             return result
         else:
             c = self.conn.cursor()
-            
             result = {}
             for row in c.execute('SELECT * FROM files'):
                 if row[1] == 'dir':
-                    result[row[0]] = {
-                        'type': 'dir'
-                    }
+                    result[row[0]] = {'type': 'dir'}
                 else:
                     result[row[0]] = {
                         'type': 'file',
@@ -87,9 +82,7 @@ class Index:
                         'hash': row[3],
                         'version': row[4],
                     }
-            
             c.close()
-            
             return result
     
     # Clean Table

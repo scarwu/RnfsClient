@@ -5,10 +5,10 @@ import hashlib
 import pyinotify
 from threading import Thread
 
-import UDModel
+import CustomTools
 
 class EventListener(Thread):
-    def __init__(self, lm ,ra, uh):
+    def __init__(self, target, api ,transfer, db):
         Thread.__init__(self)
         
         # Inotify event mask
@@ -21,8 +21,8 @@ class EventListener(Thread):
         
         # Event Listener
         wm = pyinotify.WatchManager()
-        wm.add_watch(lm.config['root'], self.event_mask, rec=True, auto_add=True)
-        self.notifier = pyinotify.Notifier(wm, EventHandler(lm ,ra, uh))
+        wm.add_watch(target, self.event_mask, rec=True, auto_add=True)
+        self.notifier = pyinotify.Notifier(wm, EventHandler(target, api ,transfer, db))
     
     def run(self):
         print "EL ... Start"
@@ -30,12 +30,15 @@ class EventListener(Thread):
         self.notifier.loop()
 
 class EventHandler(pyinotify.ProcessEvent):
-    def __init__(self, lm ,ra, uh):
+    def __init__(self, target, api ,transfer, db):
         pyinotify.ProcessEvent.__init__(self)
         
-        self.lm = lm
-        self.ra = ra
-        self.uh = uh
+        self.target = target
+        self.api = api
+        self.transfer = transfer 
+        self.db = db
+        
+        self.tools = CustomTools.LocalManage(self.target);
     
     def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
@@ -48,57 +51,47 @@ class EventHandler(pyinotify.ProcessEvent):
         return m.hexdigest()
     
     def process_IN_DELETE(self, event):
-        path = event.pathname[len(self.lm.config['root']):]
-        print "EL (X) DELETE %s" % path
-        self.ra.deleteFile(path);
+        path = event.pathname[len(self.target):]
         
-        if path in self.lm.file_list:
-            self.lm.file_list.pop(path)
-
-        self.lm.saveListCache()
+        print "EL (X) DELETE %s" % path
+        self.api.deleteFile(path)
+        self.db.delete(path)
         
     def process_IN_CREATE(self, event):
-        path = event.pathname[len(self.lm.config['root']):]
+        path = event.pathname[len(self.target):]
         
         if os.path.isdir(event.pathname):
-            self.lm.file_list[path] = {'type': 'dir'}
-            
             print "EL (D) CREATE %s" % path
-            self.lm.upload_index.append(path)
-            if not self.uh.isAlive():
-                self.uh = UDModel.UploadHandler(self.lm, self.ra)
-                self.uh.start()
+            self.transfer.upload([{
+                'path': path,
+                'type': 'dir'
+            }])
         else:
-            self.lm.file_list[path] = {
-                'type': 'file',
-                'hash': self.md5Checksum(event.pathname),
-                'size': os.path.getsize(event.pathname)
-            }
-            
             print "EL (F) CREATE %s" % path
-            self.lm.upload_index.append(path)
-            if not self.uh.isAlive():
-                self.uh = UDModel.UploadHandler(self.lm, self.ra)
-                self.uh.start()
+            self.transfer.upload([{
+                'path': path,
+                'type': 'file',
+                'size': os.path.getsize(event.pathname),
+                'hash': self.md5Checksum(event.pathname),
+                'version': 0
+            }])
                 
-        self.lm.saveListCache()
-            
 #    def process_IN_MODIFY(self, event):
-#        path = event.pathname[len(self.lm.config['root']):]
+#        path = event.pathname[len(self.target):]
 #        if os.path.isdir(event.pathname):
 #            print "EL ... (D) MODIFY %s" % event.pathname
 #        else:
 #            print "EL ... (F) MODIFY %s" % event.pathname
 #            
 #    def process_IN_MOVED_FROM(self, event):
-#        path = event.pathname[len(self.lm.config['root']):]
+#        path = event.pathname[len(self.target):]
 #        if os.path.isdir(event.pathname):
 #            print "EL ... (D) MOVE F %s" % event.pathname
 #        else:
 #            print "EL ... (F) MOVE F %s" % event.pathname
 #            
 #    def process_IN_MOVED_TO(self, event):
-#        path = event.pathname[len(self.lm.config['root']):]
+#        path = event.pathname[len(self.target):]
 #        if os.path.isdir(event.pathname):
 #            print "EL ... (D) MOVE T %s" % event.pathname
 #        else:

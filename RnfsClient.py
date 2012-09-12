@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 import ConfigParser
 
-sys.path.append('./Library')
+os.sys.path.append('./Library')
 
 import ServiceCaller
-#import ServerEvent
-#import FileEvent
+import ServerEvent
+import FileEvent
 import Database
 import Complete
 import TransferModel
@@ -56,7 +55,7 @@ if __name__ == '__main__':
         print api.getStatus()
         print api.getResult()
         print 'Exit'
-        sys.exit()
+        os.sys.exit()
         
     # Initialize DataBase
     db = Database.Index(config['root'])
@@ -75,8 +74,8 @@ if __name__ == '__main__':
     complete_sync.differ(wait=True)
 
     # Initialize LP, EL
-#    long_polling = ServerEvent.LongPolling({}, api, transfer, db)
-#    file_event = FileEvent.EventListener({}, api, transfer, db)
+    long_polling = ServerEvent.LongPolling(config['target'], api, transfer, db)
+    file_event = FileEvent.EventListener(config['target'], api, transfer, db)
     
     # Start Thread
 #    if is_loop:

@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-from threading import Thread
-import time
-import sys
 import os
+import time
+from threading import Thread
 
 import CustomTools
 
@@ -56,11 +55,7 @@ class Sync(Thread):
         else:
             print self.api.getResult()
             print 'CS ... Exit'
-            sys.exit()
-        
-#        print cache_list
-#        print local_list
-#        print server_list
+            os.sys.exit()
         
         # Delete Index
         local_delete_index = list(cache_index.intersection(local_index).difference(server_index))
@@ -82,17 +77,7 @@ class Sync(Thread):
         for index in identical_index:
             file_list[index] = server_list[index]
         
-        for index in local_delete_index:
-            print '--- LD: %s' % index
-            if os.path.isdir(self.target + '/' + index):
-                os.rmdir(self.target + '/' + index)
-            else:
-                os.remove(self.target + '/' + index)
-        
-        for index in server_delete_index:
-            print '--- SD: %s' % index
-            self.api.deleteFile(index)
-        
+        # Generate List
         upload_list = []
         for path in upload_index:
             if local_list[path]['type'] == 'dir':
@@ -125,9 +110,24 @@ class Sync(Thread):
                     'version': server_list[path]['version']
                 })
         
+        # Delete Local Files
+        for index in local_delete_index:
+            print '--- LD: %s' % index
+            if os.path.isdir(self.target + '/' + index):
+                os.rmdir(self.target + '/' + index)
+            else:
+                os.remove(self.target + '/' + index)
+            self.db.delete(index)
+        
+        # Delete Server Files
+        for index in server_delete_index:
+            print '--- SD: %s' % index
+            self.api.deleteFile(index)
+            self.db.delete(index)
+        
         self.transfer.upload(upload_list);
         self.transfer.download(download_list);
-#        self.transfer.update();
+#        self.transfer.update(update_list);
 
         if wait:
             self.transfer.wait()
