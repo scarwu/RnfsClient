@@ -108,7 +108,7 @@ class API():
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
-            conn.request('GET', '/user/'+self.config['username'], None, {'Access-Token': self.token})
+            conn.request('GET', '/user/'+self.username, None, {'Access-Token': self.token})
             
             response = conn.getresponse()
             self.result = self.__decode(response.read())
@@ -263,7 +263,7 @@ class API():
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
-            conn.request('POST', '/sync/'+self.config['username'], None, {'Access-Token': self.token})
+            conn.request('POST', '/sync/'+self.username, None, {'Access-Token': self.token})
             
             response = conn.getresponse()
             self.result = self.__decode(response.read())

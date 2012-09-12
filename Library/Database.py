@@ -61,13 +61,46 @@ class Index:
         if path != None:
             c = self.conn.cursor()
             c.execute('SELECT * FROM files WHERE path="%s"' % path)
+            row = c.fetchone()
+            
+            result = {}
+            if row[1] == 'dir':
+                result[row[0]] = {
+                    'type': 'dir'
+                }
+            else:
+                result[row[0]] = {
+                    'type': 'file',
+                    'size': row[2],
+                    'hash': row[3],
+                    'version': row[4],
+                }
+                    
             self.conn.commit()
             c.close()
+            
+            return result
         else:
             c = self.conn.cursor()
-            c.execute('SELECT * FROM files')
+            
+            result = {}
+            for row in c.execute('SELECT * FROM files'):
+                if row[1] == 'dir':
+                    result[row[0]] = {
+                        'type': 'dir'
+                    }
+                else:
+                    result[row[0]] = {
+                        'type': 'file',
+                        'size': row[2],
+                        'hash': row[3],
+                        'version': row[4],
+                    }
+            
             self.conn.commit()
             c.close()
+            
+            return result
     
     def clean(self):
         c = self.conn.cursor()

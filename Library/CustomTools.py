@@ -4,8 +4,8 @@ import os
 import hashlib
 
 class LocalManage():
-    def __init__(self):
-        pass
+    def __init__(self, root):
+        self.root = root
 
     def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
@@ -19,7 +19,7 @@ class LocalManage():
     
     def getLocalList(self, path = ''):
         local_list = {}
-        current_path = self.config['root'] + path
+        current_path = self.root + path
         for dirname in os.listdir(current_path):
             if os.path.isdir(current_path + '/' + dirname):
                 local_list[path + '/' + dirname] = {
@@ -39,7 +39,7 @@ class LocalManage():
             return None
         else:
             return {
-                'hash': self.md5Checksum(self.config['root'] + '/' + path),
-                'size': os.path.getsize(self.config['root'] + '/' + path)
+                'hash': self.md5Checksum(self.root + '/' + path),
+                'size': os.path.getsize(self.root + '/' + path)
             }
     
