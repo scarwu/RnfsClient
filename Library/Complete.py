@@ -58,33 +58,29 @@ class Sync(Thread):
             print 'CS ... Exit'
             sys.exit()
         
-        print cache_list
-        print local_list
-        print server_list
+#        print cache_list
+#        print local_list
+#        print server_list
         
         # Delete Index
         local_delete_index = list(cache_index.intersection(local_index).difference(server_index))
         server_delete_index = list(cache_index.intersection(server_index).difference(local_index))
         
         # Upload / Download Index
-        update_index = list(local_index.difference(cache_index.union(server_index)))
+        upload_index = list(local_index.difference(cache_index.union(server_index)))
         download_index = list(server_index.difference(cache_index.union(local_index)))
         
         # Identical Index
-#        identical_index = list(server_index.intersection(local_index))
+        identical_index = list(server_index.intersection(local_index))
         
         local_delete_index.sort(reverse=True)
         server_delete_index.sort(reverse=True)
-        update_index.sort()
+        upload_index.sort()
         download_index.sort()
         
-#        file_list = {}
-#        for index in identical_index:
-#            file_list[index] = local_list[index]
-#        for index in update_index:
-#            file_list[index] = local_list[index]
-#        for index in download_index:
-#            file_list[index] = server_list[index]
+        file_list = {}
+        for index in identical_index:
+            file_list[index] = server_list[index]
         
         for index in local_delete_index:
             print '--- LD: %s' % index
@@ -96,11 +92,43 @@ class Sync(Thread):
         for index in server_delete_index:
             print '--- SD: %s' % index
             self.api.deleteFile(index)
-
-#        self.transfer.upload();
-#        self.transfer.download();
+        
+        upload_list = []
+        for path in upload_index:
+            if local_list[path]['type'] == 'dir':
+                upload_list.append({
+                    'path': path,
+                    'type': 'dir'
+                })
+            else:
+                upload_list.append({
+                    'path': path,
+                    'type': 'file',
+                    'size': local_list[path]['size'],
+                    'hash': local_list[path]['hash'],
+                    'version': 0
+                })
+        
+        download_list = []
+        for path in download_index:
+            if server_list[path]['type'] == 'dir':
+                download_list.append({
+                    'path': path,
+                    'type': 'dir'
+                })
+            else:
+                download_list.append({
+                    'path': path,
+                    'type': 'file',
+                    'size': server_list[path]['size'],
+                    'hash': server_list[path]['hash'],
+                    'version': server_list[path]['version']
+                })
+        
+        self.transfer.upload(upload_list);
+        self.transfer.download(download_list);
 #        self.transfer.update();
 
-#        if wait:
-#            self.transfer.wait()
+        if wait:
+            self.transfer.wait()
         

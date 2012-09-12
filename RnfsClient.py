@@ -3,9 +3,6 @@
 
 import os
 import sys
-
-
-from collections import deque
 import ConfigParser
 
 sys.path.append('./Library')
@@ -65,7 +62,7 @@ if __name__ == '__main__':
     db = Database.Index(config['root'])
     
     # Initialize Transfer Manager
-    transfer = TransferModel.Manager(config['root'], api, db)
+    transfer = TransferModel.Manager(config['target'], api, db)
     
     # Initialize CS
     complete_sync = Complete.Sync({

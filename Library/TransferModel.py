@@ -5,33 +5,44 @@ from threading import Thread
 from collections import deque
 
 class Manager():
-    def __init__(self, root, api, db):
-        self.ul_handler = None
-        self.dl_handler = None
-        self.up_handler = None
-        
-        self.root = root
+    def __init__(self, target, api, db):
+        self.target = target
         self.api = api
         self.db = db
+        
+        # Initialize All Handler
+        self.ul_handler = UploadHandler(self.target, self.api, self.db)
+        self.dl_handler = DownloadHandler(self.target, self.api, self.db)
+        self.up_handler = UpdateHandler(self.target, self.api, self.db)
     
-    def upload(self, index):
-        self.ul_handler.index += deque([index])
-        if not self.ul_handler.index and not self.ul_handler.isAlive():
-            self.ul_handler = UploadHandler(self.root, self.api, self.db)
+    # Start Upload Thread
+    def upload(self, file_list):
+        if not self.ul_handler.isAlive():
+            self.ul_handler = UploadHandler(self.target, self.api, self.db)
+            self.ul_handler.file_list = deque(file_list)
             self.ul_handler.start()
-
-    def download(self, index):
-        self.dl_handler.index += deque([index])
-        if not self.dl_handler.index and not self.dl_handler.isAlive():
-            self.dl_handler = DownloadHandler(self.root, self.api, self.db)
-            self.dl_handler.start()
+        else:
+            self.ul_handler.file_list += deque(file_list)
     
-    def update(self, index):
-        self.up_handler.index += deque([index])
-        if not self.up_handler.index and not self.up_handler.isAlive():
-            self.up_handler = UpdateHandler(self.root, self.api, self.db)
+    # Start Download Thread
+    def download(self, file_list):
+        if not self.dl_handler.isAlive():
+            self.dl_handler = DownloadHandler(self.target, self.api, self.db)
+            self.dl_handler.file_list = deque(file_list)
+            self.dl_handler.start()
+        else:
+            self.dl_handler.file_list += deque(file_list)
+    
+    # Start Update Thread
+    def update(self, file_list):
+        if not self.up_handler.isAlive():
+            self.up_handler = UpdateHandler(self.target, self.api, self.db)
+            self.up_handler.file_list = deque(file_list)
             self.up_handler.start()
+        else:
+            self.up_handler.file_list += deque(file_list)
 
+    # Wait All Thread Finished
     def wait(self):
         if self.ul_handler.isAlive():
             self.ul_handler.join()
@@ -42,94 +53,110 @@ class Manager():
         if self.up_handler.isAlive():
             self.up_handler.join()
 
-class UpdateHandler(Thread):
-    def __init__(self, root, api, db):
-        Thread.__init__(self)
-        
-        self.root = root
-        self.api = api
-        self.db = db
-        self.index = None
-    
-    def run(self):
-        if self.index:
-            self.handler()
-    
-    def handler(self):
-        while self.index:
-            index = self.index.popleft()
-            
-            print "<<< Update File: %s" % index
-            if not self.api.updateFile(index, self.root + index):
-                print '<<< Update File: Fail %s' % self.api.getStatus()
-                print self.api.getResult()
-
+'''
+File Upload Handler
+'''
 class UploadHandler(Thread):
-    def __init__(self, root, api, db):
+    def __init__(self, target, api, db):
         Thread.__init__(self)
         
-        self.root = root
+        self.target = target
         self.api = api
         self.db = db
-        self.index = None
+        self.file_list = deque([])
     
     def run(self):
-        if self.index:
+        if self.file_list:
             self.handler()
     
     def handler(self):
-        while self.index:
-            index = self.index.popleft()
+        while self.file_list:
+            info = self.file_list.popleft()
             
-            if self.lm.file_list[index]['type'] == 'dir':
-                print "<<< Create Dir: %s" % index
-                self.api.uploadFile(index)
+            if info['type'] == 'dir':
+                print "<<< Create Dir: %s" % info['path']
+                self.api.uploadFile(info['path'])
                 self.db.add({
-                    'path': index,
+                    'path': info['path'],
                     'type': 'dir'
                 })
             else:
-                print "<<< Upload File: %s" % index
-                if not self.api.uploadFile(index, self.root + index):
+                print "<<< Upload File: %s" % info['path']
+                if not self.api.uploadFile(info['path'], self.target + info['path']):
                     print '<<< Upload File: Fail %s' % self.api.getStatus()
                     print self.api.getResult()
                 else:
                     self.db.add({
-                        'path': index,
-                        'type': 'file'
+                        'path': info['path'],
+                        'type': 'file',
+                        'size': info['size'],
+                        'hash': info['hash'],
+                        'version': info['version']
                     })
 
+'''
+File Download Handler
+'''
 class DownloadHandler(Thread):
-    def __init__(self, root, api, db):
+    def __init__(self, target, api, db):
         Thread.__init__(self)
         
-        self.root = root
+        self.target = target
         self.api = api
         self.db = db
-        self.index = None
+        self.file_list = deque([])
         
     def run(self):
-        if self.index:
+        if self.file_list:
             self.handler()
     
     def handler(self):
-        while self.index:
-            index = self.index.popleft()
+        while self.file_list:
+            info = self.file_list.popleft()
             
-            if self.lm.file_list[index]['type'] == 'dir':
-                print ">>> Create Dir: %s" % index
-                os.mkdir(self.root + index)
+            if info['type'] == 'dir':
+                print ">>> Create Dir: %s" % info['path']
+                os.mkdir(self.target + info['path'])
                 self.db.add({
-                    'path': index,
+                    'path': info['path'],
                     'type': 'dir'
                 })
             else:
-                print ">>> Download File: %s" % index
-                if not self.api.downloadFile(index, self.root + index):
+                print ">>> Download File: %s" % info['path']
+                if not self.api.downloadFile(info['path'], self.target + info['path']):
                     print '>>> Download File: Fail %s' % self.api.getStatus()
                     print self.api.getResult()
                 else:
                     self.db.add({
-                        'path': index,
-                        'type': 'file'
+                        'path': info['path'],
+                        'type': 'file',
+                        'size': info['size'],
+                        'hash': info['hash'],
+                        'version': info['version']
                     })
+
+
+'''
+File Update Handler
+'''
+class UpdateHandler(Thread):
+    def __init__(self, target, api, db):
+        Thread.__init__(self)
+        
+        self.target = target
+        self.api = api
+        self.db = db
+        self.file_list = deque([])
+    
+    def run(self):
+        if self.file_list:
+            self.handler()
+    
+    def handler(self):
+        while self.file_list:
+            info = self.file_list.popleft()
+            
+            print "<<< Update File: %s" % info['path']
+            if not self.api.updateFile(info['path'], self.target + info['path']):
+                print '<<< Update File: Fail %s' % self.api.getStatus()
+                print self.api.getResult()
