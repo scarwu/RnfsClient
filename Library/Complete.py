@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
 import time
+import hashlib
 from threading import Thread
-
-import CustomTools
 
 class Sync(Thread):
     def __init__(self, config, api, transfer, db):
@@ -16,15 +15,48 @@ class Sync(Thread):
         self.api = api
         self.transfer = transfer
         self.db = db
-        
-        self.tools = CustomTools.LocalManage(self.target);
+    
+    def md5Checksum(self, file_path):
+        fh = open(file_path, 'rb')
+        m = hashlib.md5()
+        while True:
+            data = fh.read(8192)
+            if not data:
+                break
+            m.update(data)
+        return m.hexdigest()
+    
+    def getLocalList(self, path = ''):
+        local_list = {}
+        current_path = self.target + path
+        for dirname in os.listdir(current_path):
+            if os.path.isdir(current_path + '/' + dirname):
+                local_list[path + '/' + dirname] = {
+                    'type': 'dir'
+                }
+                local_list.update(self.getLocalList(path + '/' + dirname))
+            else:
+                local_list[path + '/' + dirname] = {
+                    'type': 'file',
+                    'hash': self.md5Checksum(current_path + '/' + dirname),
+                    'size': os.path.getsize(current_path + '/' + dirname)
+                }
+        return local_list
+    
+#    def fileInfo(self, path):
+#        if not os.path.exists(path):
+#            return None
+#        else:
+#            return {
+#                'hash': self.md5Checksum(self.target + '/' + path),
+#                'size': os.path.getsize(self.target + '/' + path)
+#            }
     
     def run(self):
         print "CS ... Start"
         while(1):
             time.sleep(self.sync_time)
             self.differ()
-            self.handler()
     
     def differ(self, wait=False):
         if(self.api.getUser()):
@@ -42,7 +74,7 @@ class Sync(Thread):
         cache_index = set(cache_list.keys())
 
         # Get local list
-        local_list = self.tools.getLocalList()
+        local_list = self.getLocalList()
         local_index = set(local_list.keys())
         
         # Get server list

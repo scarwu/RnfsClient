@@ -6,16 +6,14 @@ import ConfigParser
 
 os.sys.path.append('./Library')
 
+import Database
 import ServiceCaller
+import TransferModel
+import Complete
 import ServerEvent
 import FileEvent
-import Database
-import Complete
-import TransferModel
 
 if __name__ == '__main__':
-    is_loop = False
-    
     config_path = 'RnfsClient.ini'
     
     if not os.path.exists(config_path):
@@ -58,7 +56,7 @@ if __name__ == '__main__':
         os.sys.exit()
         
     # Initialize DataBase
-    db = Database.Index(config['root'])
+    db = Database.Index(config['root'] + '/index.sqlite3')
     
     # Initialize Transfer Manager
     transfer = TransferModel.Manager(config['target'], api, db)
@@ -77,8 +75,6 @@ if __name__ == '__main__':
     long_polling = ServerEvent.LongPolling(config['target'], api, transfer, db)
     file_event = FileEvent.EventListener(config['target'], api, transfer, db)
     
-    # Start Thread
-#    if is_loop:
-#        complete_sync.start()
-#        long_polling.start()
-#        file_event.start()
+    complete_sync.start()
+    long_polling.start()
+    file_event.start()

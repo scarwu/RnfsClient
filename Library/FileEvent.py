@@ -5,8 +5,6 @@ import hashlib
 import pyinotify
 from threading import Thread
 
-import CustomTools
-
 class EventListener(Thread):
     def __init__(self, target, api ,transfer, db):
         Thread.__init__(self)
@@ -35,11 +33,77 @@ class EventHandler(pyinotify.ProcessEvent):
         
         self.target = target
         self.api = api
-        self.transfer = transfer 
+        self.transfer = transfer
         self.db = db
-        
-        self.tools = CustomTools.LocalManage(self.target);
     
+    # Delete File
+    def process_IN_DELETE(self, event):
+        path = event.pathname[len(self.target):]
+        
+        if self.db.isExists(path):
+            print "EL (X) DELETE %s" % path
+            
+            # Server Delete
+            self.api.deleteFile(path)
+            
+            # DB Delete
+            self.db.delete(path)
+    
+    # Create File
+    def process_IN_CREATE(self, event):
+        path = event.pathname[len(self.target):]
+        
+        if not self.db.isExists(path):
+            if os.path.isdir(event.pathname):
+                print "EL (D) CREATE %s" % path
+                
+                # Server Create dir
+                self.transfer.upload([{
+                    'path': path,
+                    'type': 'dir'
+                }])
+            else:
+                print "EL (F) CREATE %s" % path
+                
+                # Upload File
+                self.transfer.upload([{
+                    'path': path,
+                    'type': 'file',
+                    'size': os.path.getsize(event.pathname),
+                    'hash': self.md5Checksum(event.pathname),
+                    'version': 0
+                }])
+                
+    def process_IN_MODIFY(self, event):
+        path = event.pathname[len(self.target):]
+        
+        if not os.path.isdir(event.pathname):
+            print "EL ... (F) MODIFY %s" % event.pathname
+            self.transfer.update([{
+                'path': path,
+                'type': 'file',
+                'size': os.path.getsize(event.pathname),
+                'hash': self.md5Checksum(event.pathname),
+                'version': self.db.get(path)['version']+1,
+                'to': 'server'
+            }])
+            
+#    def process_IN_MOVED_FROM(self, event):
+#        path = event.pathname[len(self.target):]
+#
+#        if os.path.isdir(event.pathname):
+#            print "EL ... (D) MOVE F %s" % event.pathname
+#        else:
+#            print "EL ... (F) MOVE F %s" % event.pathname
+            
+#    def process_IN_MOVED_TO(self, event):
+#        path = event.pathname[len(self.target):]
+#
+#        if os.path.isdir(event.pathname):
+#            print "EL ... (D) MOVE T %s" % event.pathname
+#        else:
+#            print "EL ... (F) MOVE T %s" % event.pathname
+        
     def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
         m = hashlib.md5()
@@ -49,50 +113,3 @@ class EventHandler(pyinotify.ProcessEvent):
                 break
             m.update(data)
         return m.hexdigest()
-    
-    def process_IN_DELETE(self, event):
-        path = event.pathname[len(self.target):]
-        
-        print "EL (X) DELETE %s" % path
-        self.api.deleteFile(path)
-        self.db.delete(path)
-        
-    def process_IN_CREATE(self, event):
-        path = event.pathname[len(self.target):]
-        
-        if os.path.isdir(event.pathname):
-            print "EL (D) CREATE %s" % path
-            self.transfer.upload([{
-                'path': path,
-                'type': 'dir'
-            }])
-        else:
-            print "EL (F) CREATE %s" % path
-            self.transfer.upload([{
-                'path': path,
-                'type': 'file',
-                'size': os.path.getsize(event.pathname),
-                'hash': self.md5Checksum(event.pathname),
-                'version': 0
-            }])
-                
-#    def process_IN_MODIFY(self, event):
-#        path = event.pathname[len(self.target):]
-#        if os.path.isdir(event.pathname):
-#            print "EL ... (D) MODIFY %s" % event.pathname
-#        else:
-#            print "EL ... (F) MODIFY %s" % event.pathname
-#            
-#    def process_IN_MOVED_FROM(self, event):
-#        path = event.pathname[len(self.target):]
-#        if os.path.isdir(event.pathname):
-#            print "EL ... (D) MOVE F %s" % event.pathname
-#        else:
-#            print "EL ... (F) MOVE F %s" % event.pathname
-#            
-#    def process_IN_MOVED_TO(self, event):
-#        path = event.pathname[len(self.target):]
-#        if os.path.isdir(event.pathname):
-#            print "EL ... (D) MOVE T %s" % event.pathname
-#        else:
-#            print "EL ... (F) MOVE T %s" % event.pathname

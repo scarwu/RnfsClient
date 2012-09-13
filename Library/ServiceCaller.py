@@ -178,7 +178,7 @@ class API():
     
             if response.status == 200:
                 os.path.dirname(local_path)
-                file(local_path,"wb").write(response.read())
+                file(local_path, 'wb').write(response.read())
                 self.result = None
             else:
                 self.result = self.__decode(response.read())
