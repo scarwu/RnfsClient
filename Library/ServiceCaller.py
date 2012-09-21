@@ -6,7 +6,6 @@ import random
 import urllib2
 import httplib
 import hashlib
-import ConfigParser
 
 class API():
     def __init__(self, config):
@@ -18,6 +17,12 @@ class API():
         self.host = config['host']
         self.port = config['port']
         self.ssl = config['ssl']
+
+        if os.path.exists(self.root + '/token') == False:
+            file(self.root + '/token', 'wb').write('')
+            self.token = 0
+        else:
+            self.token = file(self.root + '/token', 'rb').read()
         
         self.status = 0
         self.result = None
@@ -69,8 +74,8 @@ class API():
             
         conn = self.__getConnectInstance()
         conn.request('POST', '/auth', self.__encode({
-            'username': self.config['username'],
-            'password': self.config['password']
+            'username': self.username,
+            'password': self.password
         }))
         
         response = conn.getresponse()
@@ -80,8 +85,7 @@ class API():
         
         if response.status == 200:
             self.token = self.result['token']
-            self.config_parser.set('info', 'token', self.token)
-            self.config_parser.write(open(self.config['config_path'], 'wb'))
+            file(self.root + '/token', 'wb').write(self.token)
 
         return response.status == 200
     
@@ -104,7 +108,7 @@ class API():
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
-            conn.request('GET', '/user/'+self.config['username'], None, {'Access-Token': self.token})
+            conn.request('GET', '/user/'+self.username, None, {'Access-Token': self.token})
             
             response = conn.getresponse()
             self.result = self.__decode(response.read())
@@ -174,11 +178,54 @@ class API():
     
             if response.status == 200:
                 os.path.dirname(local_path)
-                file(local_path,"wb").write(response.read())
+                file(local_path, 'wb').write(response.read())
                 self.result = None
             else:
                 self.result = self.__decode(response.read())
                 
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
+        
+        return response.status == 200
+    
+    def updateFile(self, server_path, local_path = None):
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance()
+            if local_path == None:
+                conn.request('PUT', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.token})
+            else:
+                m = hashlib.md5()
+                m.update('%f' % random.random())
+                bundary = m.hexdigest()
+                body = []
+    
+                file_content = file(local_path, 'rb').read()
+    
+                body.extend([
+                    '--' + bundary,
+                    'Content-Disposition: form-data; name="file"; filename="%s"' % os.path.basename(local_path),
+                    'Content-Type: application/octet-stream',
+                    '',
+                    file_content,
+                    '--' + bundary + '--',
+                    ''
+                ])
+    
+                conn.request('PUT', urllib2.quote('/file/' + server_path.lstrip('/')), '\r\n'.join(body), {
+                    'Accept': 'text/plain',
+                    'Access-Token': self.token,
+                    'Content-Type': 'multipart/form-data; boundary=%s' % bundary
+                })
+            
+            response = conn.getresponse()
+            self.result = self.__decode(response.read())
             self.status = response.status
             conn.close()
             
@@ -259,7 +306,7 @@ class API():
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
-            conn.request('POST', '/sync/'+self.config['username'], None, {'Access-Token': self.token})
+            conn.request('POST', '/sync/'+self.username, None, {'Access-Token': self.token})
             
             response = conn.getresponse()
             self.result = self.__decode(response.read())

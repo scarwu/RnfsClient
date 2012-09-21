@@ -1,5 +1,4 @@
-RNFileSystemClient.ini
-Test/RNFileSystemClient.ini
+RnfsClient.ini
 Library/*.pyc
 .project
 .pydevproject

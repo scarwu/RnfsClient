@@ -1,77 +1,179 @@
 # -*- coding: utf-8 -*-
 
 import os
+import re
 import sqlite3
 
 class Index:
     def __init__(self, path):
-        path = path + '/index.sqlite3'
-        
         if os.path.exists(path) == False:
-            self.conn = sqlite3.connect(path)
-            c = self.conn.cursor()
-            
-            # Files Table
-            c.execute(
+            self.conn = sqlite3.connect(path, check_same_thread=False)
+            self.conn.execute(
                 "CREATE TABLE files (" +
                     "path TEXT NOT NULL," +
                     "type TEXT NOT NULL," +
                     "size INTEGER," +
                     "hash TEXT," +
+                    "time INTEGER," +
                     "version INTEGER" +
                 ")"
             )
-
             self.conn.commit()
-            c.close()
         else:
-            self.conn = sqlite3.connect(path)
+            self.conn = sqlite3.connect(path, check_same_thread=False)
+            
+        self.conn.create_function("REGEXP", 2, self.regexp)
+     
+    def regexp(self, expr, item):
+        reg = re.compile(expr)
+        return reg.search(item) is not None
         
-    def isExsist(self, path):
-        pass
+    def isExists(self, path):
+        c = self.conn.cursor()
+        c.execute('SELECT COUNT(*) FROM files WHERE path="%s"' % path)
+        count = c.fetchone()[0]
+        c.close()
+        return count > 0
     
-    def add(self, data):
-        if data['type'] == 'file':
+    def isDir(self, path):
+        if not self.isExists(path):
+            return None
+        
+        c = self.conn.cursor()
+        c.execute('SELECT COUNT(*) FROM files WHERE path="%s" AND type="dir"' % path)
+        count = c.fetchone()[0]
+        c.close()
+        return count > 0
+    
+    def isFile(self, path):
+        if not self.isExists(path):
+            return None
+        
+        c = self.conn.cursor()
+        c.execute('SELECT COUNT(*) FROM files WHERE path="%s" AND type="file"' % path)
+        count = c.fetchone()[0]
+        c.close()
+        return count > 0
+    
+    # Get Path Type
+    def type(self, path):
+        if not self.isExists(path):
+            return None
+        
+        c = self.conn.cursor()
+        c.execute('SELECT type FROM files WHERE path="%s"' % path)
+        result = c.fetchone()[0]
+        c.close()
+        return result
+    
+    # Create Full Path
+    def createFullDirPath(self, path, file_type):
+        segments = path.split('/')
+        segments.remove('')
+        
+        if 'file' == file_type:
+            segments.pop()
+
+        full_path = ''
+        for segment in segments:
+            full_path += '/' + segment
+            if not self.isExists(full_path) and full_path != '/':
+                self.conn.execute('INSERT INTO files (path, type) VALUES ("%s", "%s")' % (full_path, 'dir'));
+                self.conn.commit()
+            elif 'file' == self.type(full_path):
+                return False
+        
+        return True
+    
+    # Move Files
+    def move(self, path, new_path):
+        if not self.isExists(path) or self.isExists(new_path):
+            return False
+        
+        self.conn.execute('UPDATE files SET path="%s" WHERE path="%s"' % (new_path, path))
+        self.conn.commit()
+        
+        self.createFullDirPath(new_path, self.type(path))
+
+        if 'dir' == self.type(new_path):
             c = self.conn.cursor()
-            c.execute(
-                'INSERT INTO files (path, type, size, hash, version) VALUES ("%s", "%s", "%s", "%s", "%s")'
-                % (data['path'], data['type'], data['size'], data['hash'], data['version'])
+            c.execute('SELECT path FROM files WHERE path REGEXP "^\/%s\/"' % path.strip('/').replace('/', '\/'))
+            
+            regex_path = '^\/%s\/(.*)' % path.strip('/').replace('/', '\/')
+            for row in c.fetchall():
+                p = re.compile(regex_path)
+                m = p.match(row[0])
+                if m:
+                    self.conn.execute('UPDATE files SET path="%s/%s" WHERE path="%s"' % (new_path, m.group(1), row[0]))
+                    self.conn.commit()
+            
+            c.close()
+    
+    # Add Index
+    def add(self, data):
+        if self.isExists(data['path']):
+            return False
+        
+        self.createFullDirPath(data['path'], data['type'])
+        
+        if data['type'] == 'file':
+            self.conn.execute(
+                'INSERT INTO files (path, type, size, hash, time, version) VALUES ("%s", "%s", "%s", "%s", "%s", "%s")'
+                % (data['path'], data['type'], data['size'], data['hash'], data['time'], data['version'])
             )
             self.conn.commit()
-            c.close()
-        else:
-            c = self.conn.cursor()
-            c.execute('INSERT INTO files (path, type) VALUES ("%s", "dir")' % data['path'])
-            self.conn.commit()
-            c.close()
     
+    # Delete Index
     def delete(self, path):
-        c = self.conn.cursor()
-        c.execute('DELETE FROM files WHERE path="%s"' % path)
+        self.conn.execute('DELETE FROM files WHERE path="%s"' % path)
         self.conn.commit()
-        c.close()
     
-    def upadte(self, path, data):
-        c = self.conn.cursor()
-        c.execute('UPDATE files SET size="%s", hash="%s", version="%s" WHERE path="%s"' % (data['size'], data['hash'], data['version'], path))
+    # Update Index
+    def update(self, data):
+        self.conn.execute(
+            'UPDATE files SET size="%s", hash="%s", time="%s", version="%s" WHERE path="%s"'
+            % (data['size'], data['hash'], data['time'], data['version'], data['path'])
+        )
         self.conn.commit()
-        c.close()
     
+    # Get Index Information
     def get(self, path=None):
         if path != None:
             c = self.conn.cursor()
             c.execute('SELECT * FROM files WHERE path="%s"' % path)
-            self.conn.commit()
+            row = c.fetchone()
+            result = {}
+            if row[1] == 'dir':
+                result[row[0]] = {'type': 'dir'}
+            else:
+                result[row[0]] = {
+                    'type': 'file',
+                    'size': row[2],
+                    'hash': row[3],
+                    'time': row[4],
+                    'version': row[5],
+                }
             c.close()
+            return result
         else:
             c = self.conn.cursor()
-            c.execute('SELECT * FROM files')
-            self.conn.commit()
+            result = {}
+            for row in c.execute('SELECT * FROM files'):
+                if row[1] == 'dir':
+                    result[row[0]] = {'type': 'dir'}
+                else:
+                    result[row[0]] = {
+                        'type': 'file',
+                        'size': row[2],
+                        'hash': row[3],
+                        'time': row[4],
+                        'version': row[5],
+                    }
             c.close()
+            return result
     
+    # Clean Table
     def clean(self):
-        c = self.conn.cursor()
-        c.execute('DELETE FROM files')
+        self.conn.execute('DELETE FROM files')
         self.conn.commit()
-        c.close()
         
