@@ -75,6 +75,6 @@ if __name__ == '__main__':
     long_polling = ServerEvent.LongPolling(config['target'], api, transfer, db)
     file_event = FileEvent.EventListener(config['target'], api, transfer, db)
     
-    complete_sync.start()
-    long_polling.start()
-    file_event.start()
+#    complete_sync.start()
+#    long_polling.start()
+#    file_event.start()

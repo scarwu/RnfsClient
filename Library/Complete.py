@@ -100,16 +100,12 @@ class Sync(Thread):
         
         # Same / Lost / Untrack Index
         lost_index = list(cache_index.difference(local_index.union(server_index)))
-#        untrack_index = list(local_index.intersection(server_index).difference(cache_index))
-#        same_index = list(cache_index.intersection(local_index).intersection(server_index))
         same_index = list(server_index.intersection(local_index))
         
         local_delete_index.sort(reverse=True)
         server_delete_index.sort(reverse=True)
         upload_index.sort()
         download_index.sort()
-        
-        
         
         # Update List
         update_list = []
@@ -191,14 +187,8 @@ class Sync(Thread):
             print '--- SD: %s' % path
             self.api.deleteFile(path)
             self.db.delete(path)
-            
-        import datetime
-                
-        for x in update_list:
-            d1 = datetime.datetime.fromtimestamp(int(local_list[x['path']]['time']))
-            d2 = datetime.datetime.fromtimestamp(int(server_list[x['path']]['time']))
-            print x['path'], ":", d1, ":", d2
         
+        # Start File Handle
         self.transfer.upload(upload_list);
         self.transfer.download(download_list);
         self.transfer.update(update_list);
