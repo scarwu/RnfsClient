@@ -14,6 +14,7 @@ class Index:
                     "type TEXT NOT NULL," +
                     "size INTEGER," +
                     "hash TEXT," +
+                    "time INTEGER," +
                     "version INTEGER" +
                 ")"
             )
@@ -117,8 +118,8 @@ class Index:
         
         if data['type'] == 'file':
             self.conn.execute(
-                'INSERT INTO files (path, type, size, hash, version) VALUES ("%s", "%s", "%s", "%s", "%s")'
-                % (data['path'], data['type'], data['size'], data['hash'], data['version'])
+                'INSERT INTO files (path, type, size, hash, time, version) VALUES ("%s", "%s", "%s", "%s", "%s", "%s")'
+                % (data['path'], data['type'], data['size'], data['hash'], data['time'], data['version'])
             )
             self.conn.commit()
     
@@ -128,10 +129,10 @@ class Index:
         self.conn.commit()
     
     # Update Index
-    def upadte(self, data):
+    def update(self, data):
         self.conn.execute(
-            'UPDATE files SET size="%s", hash="%s", version="%s" WHERE path="%s"'
-            % (data['size'], data['hash'], data['version'], data['path'])
+            'UPDATE files SET size="%s", hash="%s", time="%s", version="%s" WHERE path="%s"'
+            % (data['size'], data['hash'], data['time'], data['version'], data['path'])
         )
         self.conn.commit()
     
@@ -149,7 +150,8 @@ class Index:
                     'type': 'file',
                     'size': row[2],
                     'hash': row[3],
-                    'version': row[4],
+                    'time': row[4],
+                    'version': row[5],
                 }
             c.close()
             return result
@@ -164,7 +166,8 @@ class Index:
                         'type': 'file',
                         'size': row[2],
                         'hash': row[3],
-                        'version': row[4],
+                        'time': row[4],
+                        'version': row[5],
                     }
             c.close()
             return result

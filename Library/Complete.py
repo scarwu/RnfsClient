@@ -39,7 +39,8 @@ class Sync(Thread):
                 local_list[path + '/' + dirname] = {
                     'type': 'file',
                     'hash': self.md5Checksum(current_path + '/' + dirname),
-                    'size': os.path.getsize(current_path + '/' + dirname)
+                    'size': os.path.getsize(current_path + '/' + dirname),
+                    'time': int(os.path.getctime(current_path + '/' + dirname))
                 }
         return local_list
     
@@ -97,17 +98,44 @@ class Sync(Thread):
         upload_index = list(local_index.difference(cache_index.union(server_index)))
         download_index = list(server_index.difference(cache_index.union(local_index)))
         
-        # Identical Index
-        identical_index = list(server_index.intersection(local_index))
+        # Same / Lost / Untrack Index
+        lost_index = list(cache_index.difference(local_index.union(server_index)))
+#        untrack_index = list(local_index.intersection(server_index).difference(cache_index))
+#        same_index = list(cache_index.intersection(local_index).intersection(server_index))
+        same_index = list(server_index.intersection(local_index))
         
         local_delete_index.sort(reverse=True)
         server_delete_index.sort(reverse=True)
         upload_index.sort()
         download_index.sort()
         
-        file_list = {}
-        for index in identical_index:
-            file_list[index] = server_list[index]
+        
+        
+        # Update List
+        update_list = []
+        for path in same_index:
+            if local_list[path]['type'] != 'dir':
+                if local_list[path]['hash'] != server_list[path]['hash']:
+                    if int(local_list[path]['time']) >= int(server_list[path]['time']):
+                        update_list.append({
+                            'path': path,
+                            'type': 'file',
+                            'size': local_list[path]['size'],
+                            'hash': local_list[path]['hash'],
+                            'time': local_list[path]['time'],
+                            'version': 0,
+                            'to': 'server'
+                        })
+                    else:
+                        update_list.append({
+                            'path': path,
+                            'type': 'file',
+                            'size': server_list[path]['size'],
+                            'hash': server_list[path]['hash'],
+                            'time': server_list[path]['time'],
+                            'version': 0,
+                            'to': 'client'
+                        })
         
         # Generate List
         upload_list = []
@@ -123,6 +151,7 @@ class Sync(Thread):
                     'type': 'file',
                     'size': local_list[path]['size'],
                     'hash': local_list[path]['hash'],
+                    'time': local_list[path]['time'],
                     'version': 0
                 })
         
@@ -139,27 +168,40 @@ class Sync(Thread):
                     'type': 'file',
                     'size': server_list[path]['size'],
                     'hash': server_list[path]['hash'],
+                    'time': server_list[path]['time'],
                     'version': server_list[path]['version']
                 })
+
+        # Delete Lost Files
+        for path in lost_index:
+            print '-- DBD: %s' % path
+            self.db.delete(path)
         
         # Delete Local Files
-        for index in local_delete_index:
-            print '--- LD: %s' % index
-            if os.path.isdir(self.target + '/' + index):
-                os.rmdir(self.target + '/' + index)
+        for path in local_delete_index:
+            print '--- LD: %s' % path
+            if os.path.isdir(self.target + '/' + path):
+                os.rmdir(self.target + '/' + path)
             else:
-                os.remove(self.target + '/' + index)
-            self.db.delete(index)
+                os.remove(self.target + '/' + path)
+            self.db.delete(path)
         
         # Delete Server Files
-        for index in server_delete_index:
-            print '--- SD: %s' % index
-            self.api.deleteFile(index)
-            self.db.delete(index)
+        for path in server_delete_index:
+            print '--- SD: %s' % path
+            self.api.deleteFile(path)
+            self.db.delete(path)
+            
+        import datetime
+                
+        for x in update_list:
+            d1 = datetime.datetime.fromtimestamp(int(local_list[x['path']]['time']))
+            d2 = datetime.datetime.fromtimestamp(int(server_list[x['path']]['time']))
+            print x['path'], ":", d1, ":", d2
         
         self.transfer.upload(upload_list);
         self.transfer.download(download_list);
-#        self.transfer.update(update_list);
+        self.transfer.update(update_list);
 
         if wait:
             self.transfer.wait()

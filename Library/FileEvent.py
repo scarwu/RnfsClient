@@ -71,6 +71,7 @@ class EventHandler(pyinotify.ProcessEvent):
                     'type': 'file',
                     'size': os.path.getsize(event.pathname),
                     'hash': self.md5Checksum(event.pathname),
+                    'time': int(os.path.getctime(event.pathname)),
                     'version': 0
                 }])
                 
@@ -84,7 +85,8 @@ class EventHandler(pyinotify.ProcessEvent):
                 'type': 'file',
                 'size': os.path.getsize(event.pathname),
                 'hash': self.md5Checksum(event.pathname),
-                'version': self.db.get(path)['version']+1,
+                'time': int(os.path.getctime(event.pathname)),
+                'version': self.db.get(path)[path]['version']+1,
                 'to': 'server'
             }])
             

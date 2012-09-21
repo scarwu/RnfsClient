@@ -194,6 +194,49 @@ class API():
         
         return response.status == 200
     
+    def updateFile(self, server_path, local_path = None):
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance()
+            if local_path == None:
+                conn.request('PUT', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.token})
+            else:
+                m = hashlib.md5()
+                m.update('%f' % random.random())
+                bundary = m.hexdigest()
+                body = []
+    
+                file_content = file(local_path, 'rb').read()
+    
+                body.extend([
+                    '--' + bundary,
+                    'Content-Disposition: form-data; name="file"; filename="%s"' % os.path.basename(local_path),
+                    'Content-Type: application/octet-stream',
+                    '',
+                    file_content,
+                    '--' + bundary + '--',
+                    ''
+                ])
+    
+                conn.request('PUT', urllib2.quote('/file/' + server_path.lstrip('/')), '\r\n'.join(body), {
+                    'Accept': 'text/plain',
+                    'Access-Token': self.token,
+                    'Content-Type': 'multipart/form-data; boundary=%s' % bundary
+                })
+            
+            response = conn.getresponse()
+            self.result = self.__decode(response.read())
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
+        
+        return response.status == 200
+    
     def uploadFile(self, server_path, local_path = None):
         self.error_count = 0
         while(self.error_count < 2):
