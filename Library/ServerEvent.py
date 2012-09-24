@@ -73,7 +73,7 @@ class LongPolling(Thread):
                 os.remove(self.target + callback['path'])
     
     def run(self):
-        print "LP ... Start"
+        print "LongPolling Start"
         while(1):
             self.api.sendPolling()
 
@@ -81,9 +81,9 @@ class LongPolling(Thread):
                 for callback in self.api.getResult():
                     self.handler(callback)
             elif self.api.getStatus() == 408:
-                print 'LongPolling ... Reconnect'
+                print 'LongPolling Reconnect'
             else:
                 print self.api.getStatus()
                 print self.api.getResult()
-                print 'LongPolling ... Exit'
+                print 'LongPolling Exit'
                 os.sys.exit()

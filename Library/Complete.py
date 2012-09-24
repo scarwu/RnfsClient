@@ -44,17 +44,8 @@ class Sync(Thread):
                 }
         return local_list
     
-#    def fileInfo(self, path):
-#        if not os.path.exists(path):
-#            return None
-#        else:
-#            return {
-#                'hash': self.md5Checksum(self.target + '/' + path),
-#                'size': os.path.getsize(self.target + '/' + path)
-#            }
-    
     def run(self):
-        print "CS ... Start"
+        print "CompleteSync Start"
         while(1):
             time.sleep(self.sync_time)
             self.differ()
@@ -87,7 +78,7 @@ class Sync(Thread):
             server_index = set(server_list.keys())
         else:
             print self.api.getResult()
-            print 'CS ... Exit'
+            print 'CompleteSync Exit'
             os.sys.exit()
         
         # Delete Index
@@ -170,12 +161,12 @@ class Sync(Thread):
 
         # Delete Lost Files
         for path in lost_index:
-            print '-- DBD: %s' % path
+            print 'Delete DB Indexes: %s' % path
             self.db.delete(path)
         
         # Delete Local Files
         for path in local_delete_index:
-            print '--- LD: %s' % path
+            print 'Delete Local Files: %s' % path
             if os.path.isdir(self.target + '/' + path):
                 os.rmdir(self.target + '/' + path)
             else:
@@ -184,7 +175,7 @@ class Sync(Thread):
         
         # Delete Server Files
         for path in server_delete_index:
-            print '--- SD: %s' % path
+            print 'Delete Server Files: %s' % path
             self.api.deleteFile(path)
             self.db.delete(path)
         

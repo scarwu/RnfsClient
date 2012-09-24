@@ -194,6 +194,27 @@ class API():
         
         return response.status == 200
     
+    def moveFile(self, path, new_path):
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance()
+            conn.request('PUT', urllib2.quote('/file/' + path.lstrip('/')), self.__encode({
+                'path': new_path
+            }), {'Access-Token': self.token})
+            
+            response = conn.getresponse()
+            self.result = self.__decode(response.read())
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
+        
+        return response.status == 200 
+    
     def updateFile(self, server_path, local_path = None):
         self.error_count = 0
         while(self.error_count < 2):
