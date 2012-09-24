@@ -18,7 +18,7 @@ class LongPolling(Thread):
             callback['path'] = callback['path'].encode('utf-8')
 
             if callback['type'] == 'dir':
-                print "LongPolling (D) CREATE %s" % callback['path']
+                print "LongPolling (D) Create %s" % callback['path']
                 if not os.path.exists(self.target + callback['path']):
                     # DB add
                     self.db.add({
@@ -30,7 +30,7 @@ class LongPolling(Thread):
                     os.mkdir(self.target + callback['path'])
                 
             elif callback['type'] == 'file':
-                print "LongPolling (F) CREATE %s" % callback['path']
+                print "LongPolling (F) Create %s" % callback['path']
                 
                 # Download
                 self.transfer.download([callback])
@@ -39,6 +39,7 @@ class LongPolling(Thread):
         elif callback['action'] == 'update':
             callback['path'] = callback['path'].encode('utf-8')
             callback['to'] = 'client'
+            print "LongPolling (F) Update %s" % callback['path']
             
             # Client Update
             self.transfer.update([callback])
@@ -47,7 +48,7 @@ class LongPolling(Thread):
         elif callback['action'] == 'rename':
             callback['path'] = callback['path'].encode('utf-8')
             callback['newpath'] = callback['newpath'].encode('utf-8')
-            print "LongPolling (X) RENAME %s -> %s" % (callback['path'], callback['newpath'])
+            print "LongPolling (X) Rename %s -> %s" % (callback['path'], callback['newpath'])
             
             # DB Rename
             self.db.move(callback['path'], callback['newpath'])
@@ -65,10 +66,10 @@ class LongPolling(Thread):
             
             # Local Delete
             if callback['type'] == 'dir':
-                print "LongPolling (D) DELETE %s" % callback['path']
+                print "LongPolling (D) Delete %s" % callback['path']
                 os.rmdir(self.target + callback['path'])
             elif callback['type'] == 'file':
-                print "LongPolling (F) DELETE %s" % callback['path']
+                print "LongPolling (F) Delete %s" % callback['path']
                 os.remove(self.target + callback['path'])
     
     def run(self):
