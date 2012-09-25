@@ -21,7 +21,8 @@ class Sync(Thread):
     def run(self):
         print "CompleteSync Start"
         while(1):
-            # Initialize LP, EL
+            self.differ()
+            
             self.long_polling = ServerEvent.LongPolling(self.target, self.api, self.transfer, self.db)
             self.file_event = FileEvent.EventListener(self.target, self.api, self.transfer, self.db)
             
@@ -30,10 +31,10 @@ class Sync(Thread):
             
             time.sleep(self.sync_time)
             
+            print 'LongPolling Stop'
+            print 'FileEvent Stop'
             self.long_polling._Thread__stop()
             self.file_event._Thread__stop()
-            
-            self.differ()
     
     def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
@@ -77,7 +78,8 @@ class Sync(Thread):
                 pass
     
     # Calculate File Indexes Differ
-    def differ(self, wait=False):
+    def differ(self):
+        print 'CompleteSync Differ'
         if(self.api.getUser()):
             user_info = self.api.getResult()
             print "User  %s - %d byte / %d byte / %d byte" % (
@@ -183,6 +185,5 @@ class Sync(Thread):
         self.transfer.download(download_list);
         self.transfer.update(update_list);
 
-        if wait:
-            self.transfer.wait()
+        self.transfer.wait()
         

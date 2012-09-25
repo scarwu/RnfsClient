@@ -97,7 +97,7 @@ class EventHandler(pyinotify.ProcessEvent):
         path = event.pathname[len(self.target):]
         
         if not event.dir:
-            print "FileEvent (F) Modify %s" % event.pathname
+            print "FileEvent (F) Modify %s" % path
             self.transfer.update([{
                 'path': path,
                 'type': 'file',

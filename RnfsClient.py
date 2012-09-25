@@ -67,6 +67,5 @@ if __name__ == '__main__':
     }, api, transfer, db)
     
     # Start Complete Sync
-    complete_sync.differ(wait=True)
     complete_sync.start()
     

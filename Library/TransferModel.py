@@ -166,13 +166,11 @@ class UpdateHandler(Thread):
             # Download File
             else:
                 print ">>> Update File: %s" % info['path']
-                
                 if not self.db.isExists(info['path']):
                     self.db.add({
                         'path': info['path'],
                         'type': 'file'
                     })
-
                 if not self.api.downloadFile(info['path'], self.target + info['path']):
                     self.db.delete(info['path'])
                     print '>>> Update File: Fail %s' % self.api.getStatus()

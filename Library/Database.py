@@ -10,8 +10,8 @@ class Index:
             self.conn = sqlite3.connect(path, check_same_thread=False)
             self.conn.execute(
                 "CREATE TABLE files (" +
-                    "path TEXT NOT NULL," +
-                    "type TEXT NOT NULL" +
+                "path TEXT NOT NULL," +
+                "type TEXT NOT NULL" +
                 ")"
             )
             self.conn.commit()
