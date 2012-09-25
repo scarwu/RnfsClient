@@ -10,12 +10,8 @@ class Index:
             self.conn = sqlite3.connect(path, check_same_thread=False)
             self.conn.execute(
                 "CREATE TABLE files (" +
-                    "path TEXT NOT NULL," +
-                    "type TEXT NOT NULL," +
-                    "size INTEGER," +
-                    "hash TEXT," +
-                    "time INTEGER," +
-                    "version INTEGER" +
+                "path TEXT NOT NULL," +
+                "type TEXT NOT NULL" +
                 ")"
             )
             self.conn.commit()
@@ -31,7 +27,10 @@ class Index:
     def isExists(self, path):
         c = self.conn.cursor()
         c.execute('SELECT COUNT(*) FROM files WHERE path="%s"' % path)
-        count = c.fetchone()[0]
+        try:
+            count = c.fetchone()[0]
+        except:
+            count = 0
         c.close()
         return count > 0
     
@@ -117,23 +116,12 @@ class Index:
         self.createFullDirPath(data['path'], data['type'])
         
         if data['type'] == 'file':
-            self.conn.execute(
-                'INSERT INTO files (path, type, size, hash, time, version) VALUES ("%s", "%s", "%s", "%s", "%s", "%s")'
-                % (data['path'], data['type'], data['size'], data['hash'], data['time'], data['version'])
-            )
+            self.conn.execute('INSERT INTO files (path, type) VALUES ("%s", "%s")' % (data['path'], data['type']))
             self.conn.commit()
     
     # Delete Index
     def delete(self, path):
         self.conn.execute('DELETE FROM files WHERE path="%s"' % path)
-        self.conn.commit()
-    
-    # Update Index
-    def update(self, data):
-        self.conn.execute(
-            'UPDATE files SET size="%s", hash="%s", time="%s", version="%s" WHERE path="%s"'
-            % (data['size'], data['hash'], data['time'], data['version'], data['path'])
-        )
         self.conn.commit()
     
     # Get Index Information
@@ -143,32 +131,16 @@ class Index:
             c.execute('SELECT * FROM files WHERE path="%s"' % path)
             row = c.fetchone()
             result = {}
-            if row[1] == 'dir':
-                result[row[0]] = {'type': 'dir'}
-            else:
-                result[row[0]] = {
-                    'type': 'file',
-                    'size': row[2],
-                    'hash': row[3],
-                    'time': row[4],
-                    'version': row[5],
-                }
+            result[row[0]] = {'type': row[1]}
+                
             c.close()
             return result
         else:
             c = self.conn.cursor()
             result = {}
             for row in c.execute('SELECT * FROM files'):
-                if row[1] == 'dir':
-                    result[row[0]] = {'type': 'dir'}
-                else:
-                    result[row[0]] = {
-                        'type': 'file',
-                        'size': row[2],
-                        'hash': row[3],
-                        'time': row[4],
-                        'version': row[5],
-                    }
+                result[row[0]] = {'type': row[1]}
+                    
             c.close()
             return result
     

@@ -1,8 +1,10 @@
-# -*- coding: utf-8 -*-
 import os
 import time
 import hashlib
 from threading import Thread
+
+import ServerEvent
+import FileEvent
 
 class Sync(Thread):
     def __init__(self, config, api, transfer, db):
@@ -16,6 +18,24 @@ class Sync(Thread):
         self.transfer = transfer
         self.db = db
     
+    def run(self):
+        print "CompleteSync Start"
+        while(1):
+            self.differ()
+            
+            self.long_polling = ServerEvent.LongPolling(self.target, self.api, self.transfer, self.db)
+            self.file_event = FileEvent.EventListener(self.target, self.api, self.transfer, self.db)
+            
+            self.long_polling.start()
+            self.file_event.start()
+            
+            time.sleep(self.sync_time)
+            
+            print 'LongPolling Stop'
+            print 'FileEvent Stop'
+            self.long_polling._Thread__stop()
+            self.file_event._Thread__stop()
+    
     def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
         m = hashlib.md5()
@@ -26,6 +46,7 @@ class Sync(Thread):
             m.update(data)
         return m.hexdigest()
     
+    # Get Local Files List
     def getLocalList(self, path = ''):
         local_list = {}
         current_path = self.target + path
@@ -43,14 +64,22 @@ class Sync(Thread):
                     'time': int(os.path.getctime(current_path + '/' + dirname))
                 }
         return local_list
+
     
-    def run(self):
-        print "CompleteSync Start"
-        while(1):
-            time.sleep(self.sync_time)
-            self.differ()
+    # Recursive Remove Directory
+    def reRmdir(self, path):
+        for root, dirs, files in os.walk(path, topdown=False):
+            try:
+                for name in files:
+                    os.remove(os.path.join(root, name))
+                for name in dirs:
+                    os.rmdir(os.path.join(root, name))
+            except:
+                pass
     
-    def differ(self, wait=False):
+    # Calculate File Indexes Differ
+    def differ(self):
+        print 'CompleteSync Differ'
         if(self.api.getUser()):
             user_info = self.api.getResult()
             print "User  %s - %d byte / %d byte / %d byte" % (
@@ -107,57 +136,29 @@ class Sync(Thread):
                         update_list.append({
                             'path': path,
                             'type': 'file',
-                            'size': local_list[path]['size'],
-                            'hash': local_list[path]['hash'],
-                            'time': local_list[path]['time'],
-                            'version': 0,
                             'to': 'server'
                         })
                     else:
                         update_list.append({
                             'path': path,
                             'type': 'file',
-                            'size': server_list[path]['size'],
-                            'hash': server_list[path]['hash'],
-                            'time': server_list[path]['time'],
-                            'version': 0,
                             'to': 'client'
                         })
         
         # Generate List
         upload_list = []
         for path in upload_index:
-            if local_list[path]['type'] == 'dir':
-                upload_list.append({
-                    'path': path,
-                    'type': 'dir'
-                })
-            else:
-                upload_list.append({
-                    'path': path,
-                    'type': 'file',
-                    'size': local_list[path]['size'],
-                    'hash': local_list[path]['hash'],
-                    'time': local_list[path]['time'],
-                    'version': 0
-                })
+            upload_list.append({
+                'path': path,
+                'type': local_list[path]['type']
+            })
         
         download_list = []
         for path in download_index:
-            if server_list[path]['type'] == 'dir':
-                download_list.append({
-                    'path': path,
-                    'type': 'dir'
-                })
-            else:
-                download_list.append({
-                    'path': path,
-                    'type': 'file',
-                    'size': server_list[path]['size'],
-                    'hash': server_list[path]['hash'],
-                    'time': server_list[path]['time'],
-                    'version': server_list[path]['version']
-                })
+            download_list.append({
+                'path': path,
+                'type': server_list[path]['type']
+            })
 
         # Delete Lost Files
         for path in lost_index:
@@ -167,10 +168,10 @@ class Sync(Thread):
         # Delete Local Files
         for path in local_delete_index:
             print 'Delete Local Files: %s' % path
-            if os.path.isdir(self.target + '/' + path):
-                os.rmdir(self.target + '/' + path)
+            if os.path.isdir(self.target + path):
+                self.reRmdir(self.target + path)
             else:
-                os.remove(self.target + '/' + path)
+                os.remove(self.target + path)
             self.db.delete(path)
         
         # Delete Server Files
@@ -184,6 +185,5 @@ class Sync(Thread):
         self.transfer.download(download_list);
         self.transfer.update(update_list);
 
-        if wait:
-            self.transfer.wait()
+        self.transfer.wait()
         

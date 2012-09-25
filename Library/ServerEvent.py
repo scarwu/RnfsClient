@@ -11,6 +11,30 @@ class LongPolling(Thread):
         self.api = api
         self.transfer = transfer
         self.db = db
+        
+    def run(self):
+        print "LongPolling Start"
+        while(1):
+            self.api.sendPolling()
+
+            if self.api.getStatus() == 200:
+                for callback in self.api.getResult():
+                    self.handler(callback)
+            elif self.api.getStatus() == 408:
+                print 'LongPolling Reconnect'
+            else:
+                print self.api.getStatus()
+                print self.api.getResult()
+                print 'LongPolling Exit'
+                os.sys.exit()
+    
+    # Recursive Remove Directory
+    def rmRmdir(self, path):
+        for root, dirs, files in os.walk(path, topdown=False):
+            for name in files:
+                os.remove(os.path.join(root, name))
+            for name in dirs:
+                os.rmdir(os.path.join(root, name))
     
     def handler(self, callback):
         # Create File
@@ -55,7 +79,6 @@ class LongPolling(Thread):
             
             # Client Rename
             os.rename(self.target + callback['path'], self.target + callback['newpath'])
-            
         
         # Delete
         elif callback['action'] == 'delete':
@@ -67,23 +90,7 @@ class LongPolling(Thread):
             # Local Delete
             if callback['type'] == 'dir':
                 print "LongPolling (D) Delete %s" % callback['path']
-                os.rmdir(self.target + callback['path'])
+                self.reRmdir(self.target + callback['path'])
             elif callback['type'] == 'file':
                 print "LongPolling (F) Delete %s" % callback['path']
                 os.remove(self.target + callback['path'])
-    
-    def run(self):
-        print "LongPolling Start"
-        while(1):
-            self.api.sendPolling()
-
-            if self.api.getStatus() == 200:
-                for callback in self.api.getResult():
-                    self.handler(callback)
-            elif self.api.getStatus() == 408:
-                print 'LongPolling Reconnect'
-            else:
-                print self.api.getStatus()
-                print self.api.getResult()
-                print 'LongPolling Exit'
-                os.sys.exit()
