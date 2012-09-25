@@ -12,6 +12,10 @@ class LongPolling(Thread):
         self.transfer = transfer
         self.db = db
     
+    # Recursive Remove Directory
+    def rmRmdir(self, path):
+        os.rmdir(path)
+    
     def handler(self, callback):
         # Create File
         if callback['action'] == 'create':
@@ -55,7 +59,6 @@ class LongPolling(Thread):
             
             # Client Rename
             os.rename(self.target + callback['path'], self.target + callback['newpath'])
-            
         
         # Delete
         elif callback['action'] == 'delete':
@@ -67,7 +70,7 @@ class LongPolling(Thread):
             # Local Delete
             if callback['type'] == 'dir':
                 print "LongPolling (D) Delete %s" % callback['path']
-                os.rmdir(self.target + callback['path'])
+                self.reRmdir(self.target + callback['path'])
             elif callback['type'] == 'file':
                 print "LongPolling (F) Delete %s" % callback['path']
                 os.remove(self.target + callback['path'])

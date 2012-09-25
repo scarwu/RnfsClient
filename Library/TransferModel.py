@@ -87,11 +87,7 @@ class UploadHandler(Thread):
                 print "<<< Upload File: %s" % info['path']
                 self.db.add({
                     'path': info['path'],
-                    'type': 'file'#,
-#                    'size': info['size'],
-#                    'hash': info['hash'],
-#                    'time': info['time'],
-#                    'version': info['version']
+                    'type': 'file'
                 })
                 if not self.api.uploadFile(info['path'], self.target + info['path']):
                     self.db.delete(info['path'])
@@ -132,11 +128,7 @@ class DownloadHandler(Thread):
                 print ">>> Download File: %s" % info['path']
                 self.db.add({
                     'path': info['path'],
-                    'type': 'file'#,
-#                    'size': info['size'],
-#                    'hash': info['hash'],
-#                    'time': info['time'],
-#                    'version': info['version']
+                    'type': 'file'
                 })
                 if not self.api.downloadFile(info['path'], self.target + info['path']):
                     self.db.delete(info['path'])
@@ -166,27 +158,10 @@ class UpdateHandler(Thread):
             # Upload File
             if info['to'] == 'server':
                 print "<<< Update File: %s" % info['path']
-#                self.db.update({
-#                    'path': info['path'],
-#                    'size': info['size'],
-#                    'hash': info['hash'],
-#                    'time': info['time'],
-#                    'version': info['version']+1
-#                })
                 if not self.api.updateFile(info['path'], self.target + info['path']):
                     self.db.delete(info['path'])
                     print '<<< Update File: Fail %s' % self.api.getStatus()
                     print self.api.getResult()
-#                else:
-#                    self.api.getFileInfo(info['path'])
-#                    result = self.api.getResult()
-#                    self.db.update({
-#                        'path': info['path'],
-#                        'size': result['size'],
-#                        'hash': result['hash'],
-#                        'time': result['time'],
-#                        'version': result['version']
-#                    })
             
             # Download File
             else:
@@ -197,25 +172,9 @@ class UpdateHandler(Thread):
                         'path': info['path'],
                         'type': 'file'
                     })
-#                    self.db.update({
-#                        'path': info['path'],
-#                        'size': info['size'],
-#                        'hash': info['hash'],
-#                        'time': info['time'],
-#                        'version': info['version']
-#                    })
+
                 if not self.api.downloadFile(info['path'], self.target + info['path']):
                     self.db.delete(info['path'])
                     print '>>> Update File: Fail %s' % self.api.getStatus()
                     print self.api.getResult()
-#                else:
-#                    self.api.getFileInfo(info['path'])
-#                    result = self.api.getResult()
-#                    self.db.update({
-#                        'path': info['path'],
-#                        'size': result['size'],
-#                        'hash': result['hash'],
-#                        'time': result['time'],
-#                        'version': result['version']
-#                    })
                     

@@ -50,6 +50,11 @@ class Sync(Thread):
             time.sleep(self.sync_time)
             self.differ()
     
+    # Recursive Remove Directory
+    def reRmdir(self, path):
+        os.rmdir(path)
+    
+    # Calculate File Indexes Differ
     def differ(self, wait=False):
         if(self.api.getUser()):
             user_info = self.api.getResult()
@@ -107,57 +112,29 @@ class Sync(Thread):
                         update_list.append({
                             'path': path,
                             'type': 'file',
-#                            'size': local_list[path]['size'],
-#                            'hash': local_list[path]['hash'],
-#                            'time': local_list[path]['time'],
-#                            'version': 0,
                             'to': 'server'
                         })
                     else:
                         update_list.append({
                             'path': path,
                             'type': 'file',
-#                            'size': server_list[path]['size'],
-#                            'hash': server_list[path]['hash'],
-#                            'time': server_list[path]['time'],
-#                            'version': 0,
                             'to': 'client'
                         })
         
         # Generate List
         upload_list = []
         for path in upload_index:
-            if local_list[path]['type'] == 'dir':
-                upload_list.append({
-                    'path': path,
-                    'type': 'dir'
-                })
-            else:
-                upload_list.append({
-                    'path': path,
-                    'type': 'file'#,
-#                    'size': local_list[path]['size'],
-#                    'hash': local_list[path]['hash'],
-#                    'time': local_list[path]['time'],
-#                    'version': 0
-                })
+            upload_list.append({
+                'path': path,
+                'type': local_list[path]['type']
+            })
         
         download_list = []
         for path in download_index:
-            if server_list[path]['type'] == 'dir':
-                download_list.append({
-                    'path': path,
-                    'type': 'dir'
-                })
-            else:
-                download_list.append({
-                    'path': path,
-                    'type': 'file'#,
-#                    'size': server_list[path]['size'],
-#                    'hash': server_list[path]['hash'],
-#                    'time': server_list[path]['time'],
-#                    'version': server_list[path]['version']
-                })
+            download_list.append({
+                'path': path,
+                'type': server_list[path]['type']
+            })
 
         # Delete Lost Files
         for path in lost_index:
@@ -168,7 +145,7 @@ class Sync(Thread):
         for path in local_delete_index:
             print 'Delete Local Files: %s' % path
             if os.path.isdir(self.target + path):
-                os.rmdir(self.target + path)
+                self.reRmdir(self.target + path)
             else:
                 os.remove(self.target + path)
             self.db.delete(path)
