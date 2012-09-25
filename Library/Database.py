@@ -27,7 +27,10 @@ class Index:
     def isExists(self, path):
         c = self.conn.cursor()
         c.execute('SELECT COUNT(*) FROM files WHERE path="%s"' % path)
-        count = c.fetchone()[0]
+        try:
+            count = c.fetchone()[0]
+        except:
+            count = 0
         c.close()
         return count > 0
     

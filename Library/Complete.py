@@ -1,8 +1,10 @@
-# -*- coding: utf-8 -*-
 import os
 import time
 import hashlib
 from threading import Thread
+
+import ServerEvent
+import FileEvent
 
 class Sync(Thread):
     def __init__(self, config, api, transfer, db):
@@ -16,6 +18,23 @@ class Sync(Thread):
         self.transfer = transfer
         self.db = db
     
+    def run(self):
+        print "CompleteSync Start"
+        while(1):
+            # Initialize LP, EL
+            self.long_polling = ServerEvent.LongPolling(self.target, self.api, self.transfer, self.db)
+            self.file_event = FileEvent.EventListener(self.target, self.api, self.transfer, self.db)
+            
+            self.long_polling.start()
+            self.file_event.start()
+            
+            time.sleep(self.sync_time)
+            
+            self.long_polling._Thread__stop()
+            self.file_event._Thread__stop()
+            
+            self.differ()
+    
     def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
         m = hashlib.md5()
@@ -26,6 +45,7 @@ class Sync(Thread):
             m.update(data)
         return m.hexdigest()
     
+    # Get Local Files List
     def getLocalList(self, path = ''):
         local_list = {}
         current_path = self.target + path
@@ -43,16 +63,18 @@ class Sync(Thread):
                     'time': int(os.path.getctime(current_path + '/' + dirname))
                 }
         return local_list
-    
-    def run(self):
-        print "CompleteSync Start"
-        while(1):
-            time.sleep(self.sync_time)
-            self.differ()
+
     
     # Recursive Remove Directory
     def reRmdir(self, path):
-        os.rmdir(path)
+        for root, dirs, files in os.walk(path, topdown=False):
+            try:
+                for name in files:
+                    os.remove(os.path.join(root, name))
+                for name in dirs:
+                    os.rmdir(os.path.join(root, name))
+            except:
+                pass
     
     # Calculate File Indexes Differ
     def differ(self, wait=False):

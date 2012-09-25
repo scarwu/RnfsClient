@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import os
 import time
 import hashlib
 import pyinotify
