@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os
+import time
 import hashlib
 import pyinotify
 from threading import Thread
@@ -23,9 +23,20 @@ class EventListener(Thread):
         self.notifier = pyinotify.Notifier(wm, EventHandler(target, api ,transfer, db))
     
     def run(self):
-        print "EL ... Start"
+        print "FileEvent Start"
+        
         # Start Loop
         self.notifier.loop()
+
+class EventCounter(Thread):
+    def __init__(self, handler):
+        Thread.__init__(self)
+        
+        self.handler = handler
+    
+    def run(self):
+        time.sleep(3)
+        self.handler.addEvent(None)
 
 class EventHandler(pyinotify.ProcessEvent):
     def __init__(self, target, api ,transfer, db):
@@ -35,13 +46,19 @@ class EventHandler(pyinotify.ProcessEvent):
         self.api = api
         self.transfer = transfer
         self.db = db
+        
+        self.counter = EventCounter(self)
+        
+        self.event_buffer = None
     
     # Delete File
     def process_IN_DELETE(self, event):
+        self.addEvent(None)
+        
         path = event.pathname[len(self.target):]
         
         if self.db.isExists(path):
-            print "EL (X) DELETE %s" % path
+            print "FileEvent (X) Delete %s" % path
             
             # Server Delete
             self.api.deleteFile(path)
@@ -51,11 +68,13 @@ class EventHandler(pyinotify.ProcessEvent):
     
     # Create File
     def process_IN_CREATE(self, event):
+        self.addEvent(None)
+        
         path = event.pathname[len(self.target):]
         
         if not self.db.isExists(path):
-            if os.path.isdir(event.pathname):
-                print "EL (D) CREATE %s" % path
+            if event.dir:
+                print "FileEvent (D) Create %s" % path
                 
                 # Server Create dir
                 self.transfer.upload([{
@@ -63,49 +82,97 @@ class EventHandler(pyinotify.ProcessEvent):
                     'type': 'dir'
                 }])
             else:
-                print "EL (F) CREATE %s" % path
+                print "FileEvent (F) Create %s" % path
                 
                 # Upload File
                 self.transfer.upload([{
                     'path': path,
-                    'type': 'file',
-                    'size': os.path.getsize(event.pathname),
-                    'hash': self.md5Checksum(event.pathname),
-                    'time': int(os.path.getctime(event.pathname)),
-                    'version': 0
+                    'type': 'file'
                 }])
-                
+    
+    # File Modify
     def process_IN_MODIFY(self, event):
+        self.addEvent(None)
+        
         path = event.pathname[len(self.target):]
         
-        if not os.path.isdir(event.pathname):
-            print "EL ... (F) MODIFY %s" % event.pathname
+        if not event.dir:
+            print "FileEvent (F) Modify %s" % path
             self.transfer.update([{
                 'path': path,
                 'type': 'file',
-                'size': os.path.getsize(event.pathname),
-                'hash': self.md5Checksum(event.pathname),
-                'time': int(os.path.getctime(event.pathname)),
-                'version': self.db.get(path)[path]['version']+1,
                 'to': 'server'
             }])
-            
-#    def process_IN_MOVED_FROM(self, event):
-#        path = event.pathname[len(self.target):]
-#
-#        if os.path.isdir(event.pathname):
-#            print "EL ... (D) MOVE F %s" % event.pathname
-#        else:
-#            print "EL ... (F) MOVE F %s" % event.pathname
-            
-#    def process_IN_MOVED_TO(self, event):
-#        path = event.pathname[len(self.target):]
-#
-#        if os.path.isdir(event.pathname):
-#            print "EL ... (D) MOVE T %s" % event.pathname
-#        else:
-#            print "EL ... (F) MOVE T %s" % event.pathname
+    
+    # File Moved from
+    def process_IN_MOVED_FROM(self, event):
+        self.addEvent('moved_from', event)
+    
+    # File Moved to
+    def process_IN_MOVED_TO(self, event):
+        self.addEvent('moved_to', event)
+    
+    # Add Event to Buffer
+    def addEvent(self, action=None, event=None):
+        if self.counter.isAlive():
+            self.counter._Thread__stop()
         
+        if action == 'moved_from':
+            if self.event_buffer != None:
+                self.movedFrom(self.event_buffer) 
+                self.event_buffer = None
+            
+            self.event_buffer = event
+
+        elif action == 'moved_to':
+            self.event_buffer = None
+            self.movedTo(event)
+            
+        elif self.event_buffer != None:
+            self.movedFrom(self.event_buffer)
+            self.event_buffer = None
+        
+        if self.event_buffer != None:
+            self.counter = EventCounter(self)
+            self.counter.start()
+    
+    def movedTo(self, event):
+        path = event.pathname[len(self.target):]
+        try:
+            src_path = event.src_pathname[len(self.target):]
+            print "FileEvent (X) Rename %s -> %s" % (src_path, path)
+            self.db.move(src_path, path)
+            self.api.moveFile(src_path, path)
+        except:
+            if not self.db.isExists(path):
+                if event.dir:
+                    print "FileEvent (D) Create (Moved to) %s" % path
+                    
+                    # Server Create dir
+                    self.transfer.upload([{
+                        'path': path,
+                        'type': 'dir'
+                    }])
+                else:
+                    print "FileEvent (F) Create (Moved to) %s" % path
+                    
+                    # Upload File
+                    self.transfer.upload([{
+                        'path': path,
+                        'type': 'file'
+                    }])
+    
+    def movedFrom(self, event):
+        path = event.pathname[len(self.target):]
+        if self.db.isExists(path):
+            print "FileEvent (x) Delete (Moved from) %s" % path
+            
+            # Server Delete
+            self.api.deleteFile(path)
+            
+            # DB Delete
+            self.db.delete(path)
+    
     def md5Checksum(self, file_path):
         fh = open(file_path, 'rb')
         m = hashlib.md5()

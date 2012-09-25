@@ -58,7 +58,7 @@ class API():
     def __updateToken(self):
         conn = self.__getConnectInstance()
         conn.request('PUT', '/auth', None, {
-            'Access-Token': self.token,
+            'X-Rnfs-Token': self.token,
             'Content-Length': 0 # FIX Nginx 411 Length Required Error
         })
         
@@ -91,7 +91,7 @@ class API():
     
     def logout(self):
         conn = self.__getConnectInstance()
-        conn.request('DELETE', '/auth', None, {'Access-Token': self.token})
+        conn.request('DELETE', '/auth', None, {'X-Rnfs-Token': self.token})
         
         response = conn.getresponse()
         self.result = self.__decode(response.read())
@@ -108,7 +108,7 @@ class API():
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
-            conn.request('GET', '/user/'+self.username, None, {'Access-Token': self.token})
+            conn.request('GET', '/user/'+self.username, None, {'X-Rnfs-Token': self.token})
             
             response = conn.getresponse()
             self.result = self.__decode(response.read())
@@ -130,7 +130,7 @@ class API():
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
-            conn.request('GET', urllib2.quote('/fileinfo/' + path.lstrip('/')), None, {'Access-Token': self.token})
+            conn.request('GET', urllib2.quote('/fileinfo/' + path.lstrip('/')), None, {'X-Rnfs-Token': self.token})
             
             response = conn.getresponse()
             self.result = self.__decode(response.read())
@@ -153,7 +153,7 @@ class API():
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
-            conn.request('GET', '/file', None, {'Access-Token': self.token})
+            conn.request('GET', '/file', None, {'X-Rnfs-Token': self.token})
             
             response = conn.getresponse()
             self.result = self.__decode(response.read())
@@ -172,7 +172,7 @@ class API():
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
-            conn.request('GET', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.token})
+            conn.request('GET', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'X-Rnfs-Token': self.token})
             
             response = conn.getresponse()
     
@@ -194,12 +194,33 @@ class API():
         
         return response.status == 200
     
+    def moveFile(self, path, new_path):
+        self.error_count = 0
+        while(self.error_count < 2):
+            conn = self.__getConnectInstance()
+            conn.request('PUT', urllib2.quote('/file/' + path.lstrip('/')), self.__encode({
+                'path': new_path
+            }), {'X-Rnfs-Token': self.token})
+            
+            response = conn.getresponse()
+            self.result = self.__decode(response.read())
+            self.status = response.status
+            conn.close()
+            
+            if self.status == 401:
+                self.login()
+                self.error_count += 1
+            else:
+                break
+        
+        return response.status == 200 
+    
     def updateFile(self, server_path, local_path = None):
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
             if local_path == None:
-                conn.request('PUT', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.token})
+                conn.request('PUT', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'X-Rnfs-Token': self.token})
             else:
                 m = hashlib.md5()
                 m.update('%f' % random.random())
@@ -220,7 +241,7 @@ class API():
     
                 conn.request('PUT', urllib2.quote('/file/' + server_path.lstrip('/')), '\r\n'.join(body), {
                     'Accept': 'text/plain',
-                    'Access-Token': self.token,
+                    'X-Rnfs-Token': self.token,
                     'Content-Type': 'multipart/form-data; boundary=%s' % bundary
                 })
             
@@ -242,7 +263,7 @@ class API():
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
             if local_path == None:
-                conn.request('POST', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.token})
+                conn.request('POST', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'X-Rnfs-Token': self.token})
             else:
                 m = hashlib.md5()
                 m.update('%f' % random.random())
@@ -263,7 +284,7 @@ class API():
     
                 conn.request('POST', urllib2.quote('/file/' + server_path.lstrip('/')), '\r\n'.join(body), {
                     'Accept': 'text/plain',
-                    'Access-Token': self.token,
+                    'X-Rnfs-Token': self.token,
                     'Content-Type': 'multipart/form-data; boundary=%s' % bundary
                 })
             
@@ -284,7 +305,7 @@ class API():
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
-            conn.request('DELETE', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'Access-Token': self.token})
+            conn.request('DELETE', urllib2.quote('/file/' + server_path.lstrip('/')), None, {'X-Rnfs-Token': self.token})
             
             response = conn.getresponse()
             self.result = self.__decode(response.read())
@@ -306,7 +327,7 @@ class API():
         self.error_count = 0
         while(self.error_count < 2):
             conn = self.__getConnectInstance()
-            conn.request('POST', '/sync/'+self.username, None, {'Access-Token': self.token})
+            conn.request('POST', '/sync/'+self.username, None, {'X-Rnfs-Token': self.token})
             
             response = conn.getresponse()
             self.result = self.__decode(response.read())

@@ -11,6 +11,30 @@ class LongPolling(Thread):
         self.api = api
         self.transfer = transfer
         self.db = db
+        
+    def run(self):
+        print "LongPolling Start"
+        while(1):
+            self.api.sendPolling()
+
+            if self.api.getStatus() == 200:
+                for callback in self.api.getResult():
+                    self.handler(callback)
+            elif self.api.getStatus() == 408:
+                print 'LongPolling Reconnect'
+            else:
+                print self.api.getStatus()
+                print self.api.getResult()
+                print 'LongPolling Exit'
+                os.sys.exit()
+    
+    # Recursive Remove Directory
+    def rmRmdir(self, path):
+        for root, dirs, files in os.walk(path, topdown=False):
+            for name in files:
+                os.remove(os.path.join(root, name))
+            for name in dirs:
+                os.rmdir(os.path.join(root, name))
     
     def handler(self, callback):
         # Create File
@@ -18,7 +42,7 @@ class LongPolling(Thread):
             callback['path'] = callback['path'].encode('utf-8')
 
             if callback['type'] == 'dir':
-                print "LongPolling (D) CREATE %s" % callback['path']
+                print "LongPolling (D) Create %s" % callback['path']
                 if not os.path.exists(self.target + callback['path']):
                     # DB add
                     self.db.add({
@@ -30,7 +54,7 @@ class LongPolling(Thread):
                     os.mkdir(self.target + callback['path'])
                 
             elif callback['type'] == 'file':
-                print "LongPolling (F) CREATE %s" % callback['path']
+                print "LongPolling (F) Create %s" % callback['path']
                 
                 # Download
                 self.transfer.download([callback])
@@ -39,6 +63,7 @@ class LongPolling(Thread):
         elif callback['action'] == 'update':
             callback['path'] = callback['path'].encode('utf-8')
             callback['to'] = 'client'
+            print "LongPolling (F) Update %s" % callback['path']
             
             # Client Update
             self.transfer.update([callback])
@@ -47,14 +72,13 @@ class LongPolling(Thread):
         elif callback['action'] == 'rename':
             callback['path'] = callback['path'].encode('utf-8')
             callback['newpath'] = callback['newpath'].encode('utf-8')
-            print "LongPolling (X) RENAME %s -> %s" % (callback['path'], callback['newpath'])
+            print "LongPolling (X) Rename %s -> %s" % (callback['path'], callback['newpath'])
             
             # DB Rename
             self.db.move(callback['path'], callback['newpath'])
             
             # Client Rename
             os.rename(self.target + callback['path'], self.target + callback['newpath'])
-            
         
         # Delete
         elif callback['action'] == 'delete':
@@ -65,24 +89,8 @@ class LongPolling(Thread):
             
             # Local Delete
             if callback['type'] == 'dir':
-                print "LongPolling (D) DELETE %s" % callback['path']
-                os.rmdir(self.target + callback['path'])
+                print "LongPolling (D) Delete %s" % callback['path']
+                self.reRmdir(self.target + callback['path'])
             elif callback['type'] == 'file':
-                print "LongPolling (F) DELETE %s" % callback['path']
+                print "LongPolling (F) Delete %s" % callback['path']
                 os.remove(self.target + callback['path'])
-    
-    def run(self):
-        print "LP ... Start"
-        while(1):
-            self.api.sendPolling()
-
-            if self.api.getStatus() == 200:
-                for callback in self.api.getResult():
-                    self.handler(callback)
-            elif self.api.getStatus() == 408:
-                print 'LongPolling ... Reconnect'
-            else:
-                print self.api.getStatus()
-                print self.api.getResult()
-                print 'LongPolling ... Exit'
-                os.sys.exit()

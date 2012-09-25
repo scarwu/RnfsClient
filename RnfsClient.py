@@ -10,8 +10,6 @@ import Database
 import ServiceCaller
 import TransferModel
 import Complete
-import ServerEvent
-import FileEvent
 
 if __name__ == '__main__':
     config_path = 'RnfsClient.ini'
@@ -69,12 +67,5 @@ if __name__ == '__main__':
     }, api, transfer, db)
     
     # Start Complete Sync
-    complete_sync.differ(wait=True)
-
-    # Initialize LP, EL
-    long_polling = ServerEvent.LongPolling(config['target'], api, transfer, db)
-    file_event = FileEvent.EventListener(config['target'], api, transfer, db)
-    
     complete_sync.start()
-    long_polling.start()
-    file_event.start()
+    
