@@ -9,13 +9,17 @@ class Index:
         if os.path.exists(path) == False:
             self.conn = sqlite3.connect(path, check_same_thread=False)
             self.conn.execute(
+#                "CREATE TABLE files (" +
+#                    "path TEXT NOT NULL," +
+#                    "type TEXT NOT NULL," +
+#                    "size INTEGER," +
+#                    "hash TEXT," +
+#                    "time INTEGER," +
+#                    "version INTEGER" +
+#                ")"
                 "CREATE TABLE files (" +
                     "path TEXT NOT NULL," +
-                    "type TEXT NOT NULL," +
-                    "size INTEGER," +
-                    "hash TEXT," +
-                    "time INTEGER," +
-                    "version INTEGER" +
+                    "type TEXT NOT NULL" +
                 ")"
             )
             self.conn.commit()
@@ -117,10 +121,11 @@ class Index:
         self.createFullDirPath(data['path'], data['type'])
         
         if data['type'] == 'file':
-            self.conn.execute(
-                'INSERT INTO files (path, type, size, hash, time, version) VALUES ("%s", "%s", "%s", "%s", "%s", "%s")'
-                % (data['path'], data['type'], data['size'], data['hash'], data['time'], data['version'])
-            )
+#            self.conn.execute(
+#                'INSERT INTO files (path, type, size, hash, time, version) VALUES ("%s", "%s", "%s", "%s", "%s", "%s")'
+#                % (data['path'], data['type'], data['size'], data['hash'], data['time'], data['version'])
+#            )
+            self.conn.execute('INSERT INTO files (path, type) VALUES ("%s", "%s")' % (data['path'], data['type']))
             self.conn.commit()
     
     # Delete Index
@@ -129,12 +134,12 @@ class Index:
         self.conn.commit()
     
     # Update Index
-    def update(self, data):
-        self.conn.execute(
-            'UPDATE files SET size="%s", hash="%s", time="%s", version="%s" WHERE path="%s"'
-            % (data['size'], data['hash'], data['time'], data['version'], data['path'])
-        )
-        self.conn.commit()
+#    def update(self, data):
+#        self.conn.execute(
+#            'UPDATE files SET size="%s", hash="%s", time="%s", version="%s" WHERE path="%s"'
+#            % (data['size'], data['hash'], data['time'], data['version'], data['path'])
+#        )
+#        self.conn.commit()
     
     # Get Index Information
     def get(self, path=None):
@@ -146,13 +151,14 @@ class Index:
             if row[1] == 'dir':
                 result[row[0]] = {'type': 'dir'}
             else:
-                result[row[0]] = {
-                    'type': 'file',
-                    'size': row[2],
-                    'hash': row[3],
-                    'time': row[4],
-                    'version': row[5],
-                }
+                result[row[0]] = {'type': 'file'}
+#                result[row[0]] = {
+#                    'type': 'file',
+#                    'size': row[2],
+#                    'hash': row[3],
+#                    'time': row[4],
+#                    'version': row[5],
+#                }
             c.close()
             return result
         else:
@@ -162,13 +168,14 @@ class Index:
                 if row[1] == 'dir':
                     result[row[0]] = {'type': 'dir'}
                 else:
-                    result[row[0]] = {
-                        'type': 'file',
-                        'size': row[2],
-                        'hash': row[3],
-                        'time': row[4],
-                        'version': row[5],
-                    }
+                    result[row[0]] = {'type': 'file'}
+#                    result[row[0]] = {
+#                        'type': 'file',
+#                        'size': row[2],
+#                        'hash': row[3],
+#                        'time': row[4],
+#                        'version': row[5],
+#                    }
             c.close()
             return result
     

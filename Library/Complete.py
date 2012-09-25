@@ -107,20 +107,20 @@ class Sync(Thread):
                         update_list.append({
                             'path': path,
                             'type': 'file',
-                            'size': local_list[path]['size'],
-                            'hash': local_list[path]['hash'],
-                            'time': local_list[path]['time'],
-                            'version': 0,
+#                            'size': local_list[path]['size'],
+#                            'hash': local_list[path]['hash'],
+#                            'time': local_list[path]['time'],
+#                            'version': 0,
                             'to': 'server'
                         })
                     else:
                         update_list.append({
                             'path': path,
                             'type': 'file',
-                            'size': server_list[path]['size'],
-                            'hash': server_list[path]['hash'],
-                            'time': server_list[path]['time'],
-                            'version': 0,
+#                            'size': server_list[path]['size'],
+#                            'hash': server_list[path]['hash'],
+#                            'time': server_list[path]['time'],
+#                            'version': 0,
                             'to': 'client'
                         })
         
@@ -135,11 +135,11 @@ class Sync(Thread):
             else:
                 upload_list.append({
                     'path': path,
-                    'type': 'file',
-                    'size': local_list[path]['size'],
-                    'hash': local_list[path]['hash'],
-                    'time': local_list[path]['time'],
-                    'version': 0
+                    'type': 'file'#,
+#                    'size': local_list[path]['size'],
+#                    'hash': local_list[path]['hash'],
+#                    'time': local_list[path]['time'],
+#                    'version': 0
                 })
         
         download_list = []
@@ -152,11 +152,11 @@ class Sync(Thread):
             else:
                 download_list.append({
                     'path': path,
-                    'type': 'file',
-                    'size': server_list[path]['size'],
-                    'hash': server_list[path]['hash'],
-                    'time': server_list[path]['time'],
-                    'version': server_list[path]['version']
+                    'type': 'file'#,
+#                    'size': server_list[path]['size'],
+#                    'hash': server_list[path]['hash'],
+#                    'time': server_list[path]['time'],
+#                    'version': server_list[path]['version']
                 })
 
         # Delete Lost Files
@@ -167,10 +167,10 @@ class Sync(Thread):
         # Delete Local Files
         for path in local_delete_index:
             print 'Delete Local Files: %s' % path
-            if os.path.isdir(self.target + '/' + path):
-                os.rmdir(self.target + '/' + path)
+            if os.path.isdir(self.target + path):
+                os.rmdir(self.target + path)
             else:
-                os.remove(self.target + '/' + path)
+                os.remove(self.target + path)
             self.db.delete(path)
         
         # Delete Server Files

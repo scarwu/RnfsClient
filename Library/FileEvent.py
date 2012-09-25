@@ -88,11 +88,11 @@ class EventHandler(pyinotify.ProcessEvent):
                 # Upload File
                 self.transfer.upload([{
                     'path': path,
-                    'type': 'file',
-                    'size': os.path.getsize(event.pathname),
-                    'hash': self.md5Checksum(event.pathname),
-                    'time': int(os.path.getctime(event.pathname)),
-                    'version': 0
+                    'type': 'file'#,
+#                    'size': os.path.getsize(event.pathname),
+#                    'hash': self.md5Checksum(event.pathname),
+#                    'time': int(os.path.getctime(event.pathname)),
+#                    'version': 0
                 }])
     
     # File Modify
@@ -106,10 +106,10 @@ class EventHandler(pyinotify.ProcessEvent):
             self.transfer.update([{
                 'path': path,
                 'type': 'file',
-                'size': os.path.getsize(event.pathname),
-                'hash': self.md5Checksum(event.pathname),
-                'time': int(os.path.getctime(event.pathname)),
-                'version': self.db.get(path)[path]['version']+1,
+#                'size': os.path.getsize(event.pathname),
+#                'hash': self.md5Checksum(event.pathname),
+#                'time': int(os.path.getctime(event.pathname)),
+#                'version': self.db.get(path)[path]['version']+1,
                 'to': 'server'
             }])
     
@@ -168,11 +168,11 @@ class EventHandler(pyinotify.ProcessEvent):
                     # Upload File
                     self.transfer.upload([{
                         'path': path,
-                        'type': 'file',
-                        'size': os.path.getsize(event.pathname),
-                        'hash': self.md5Checksum(event.pathname),
-                        'time': int(os.path.getctime(event.pathname)),
-                        'version': 0
+                        'type': 'file'#,
+#                        'size': os.path.getsize(event.pathname),
+#                        'hash': self.md5Checksum(event.pathname),
+#                        'time': int(os.path.getctime(event.pathname)),
+#                        'version': 0
                     }])
     
     def movedFrom(self, event):
