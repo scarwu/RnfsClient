@@ -58,7 +58,7 @@ class EventHandler(pyinotify.ProcessEvent):
         path = event.pathname[len(self.target):]
         
         if self.db.isExists(path):
-            print "FileEvent (X) Delete %s" % path
+            print "FileEvent Delete %s" % path
             
             # Server Delete
             self.api.deleteFile(path)
@@ -74,7 +74,7 @@ class EventHandler(pyinotify.ProcessEvent):
         
         if not self.db.isExists(path):
             if event.dir:
-                print "FileEvent (D) Create %s" % path
+                print "FileEvent Create Dir %s" % path
                 
                 # Server Create dir
                 self.transfer.upload([{
@@ -82,12 +82,13 @@ class EventHandler(pyinotify.ProcessEvent):
                     'type': 'dir'
                 }])
             else:
-                print "FileEvent (F) Create %s" % path
+                print "FileEvent Create File %s" % path
                 
                 # Upload File
                 self.transfer.upload([{
                     'path': path,
-                    'type': 'file'
+                    'type': 'file',
+                    'update': False
                 }])
     
     # File Modify
@@ -97,11 +98,11 @@ class EventHandler(pyinotify.ProcessEvent):
         path = event.pathname[len(self.target):]
         
         if not event.dir:
-            print "FileEvent (F) Modify %s" % path
-            self.transfer.update([{
+            print "FileEvent Modify %s" % path
+            self.transfer.upload([{
                 'path': path,
                 'type': 'file',
-                'to': 'server'
+                'update': True
             }])
     
     # File Moved from
@@ -146,7 +147,7 @@ class EventHandler(pyinotify.ProcessEvent):
         except:
             if not self.db.isExists(path):
                 if event.dir:
-                    print "FileEvent (D) Create (Moved to) %s" % path
+                    print "FileEvent Create Dir (Moved to) %s" % path
                     
                     # Server Create dir
                     self.transfer.upload([{
@@ -154,18 +155,19 @@ class EventHandler(pyinotify.ProcessEvent):
                         'type': 'dir'
                     }])
                 else:
-                    print "FileEvent (F) Create (Moved to) %s" % path
+                    print "FileEvent Create File (Moved to) %s" % path
                     
                     # Upload File
                     self.transfer.upload([{
                         'path': path,
-                        'type': 'file'
+                        'type': 'file',
+                        'update': False
                     }])
     
     def movedFrom(self, event):
         path = event.pathname[len(self.target):]
         if self.db.isExists(path):
-            print "FileEvent (x) Delete (Moved from) %s" % path
+            print "FileEvent Delete (Moved from) %s" % path
             
             # Server Delete
             self.api.deleteFile(path)
