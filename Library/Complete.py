@@ -31,8 +31,8 @@ class Sync(Thread):
             
             time.sleep(self.sync_time)
             
-            print 'LongPolling Stop'
-            print 'FileEvent Stop'
+            print "LongPolling Stop"
+            print "FileEvent Stop"
             self.long_polling._Thread__stop()
             self.file_event._Thread__stop()
     
@@ -127,33 +127,33 @@ class Sync(Thread):
         upload_index.sort()
         download_index.sort()
         
+        upload_list = []
+        download_list = []
+        
         # Update List
-        update_list = []
         for path in same_index:
             if local_list[path]['type'] != 'dir':
                 if local_list[path]['hash'] != server_list[path]['hash']:
                     if int(local_list[path]['time']) >= int(server_list[path]['time']):
-                        update_list.append({
+                        upload_list.append({
                             'path': path,
                             'type': 'file',
-                            'to': 'server'
+                            'update': True
                         })
                     else:
-                        update_list.append({
+                        download_list.append({
                             'path': path,
-                            'type': 'file',
-                            'to': 'client'
+                            'type': 'file'
                         })
         
         # Generate List
-        upload_list = []
         for path in upload_index:
             upload_list.append({
                 'path': path,
-                'type': local_list[path]['type']
+                'type': local_list[path]['type'],
+                'update': False
             })
-        
-        download_list = []
+
         for path in download_index:
             download_list.append({
                 'path': path,
@@ -183,7 +183,6 @@ class Sync(Thread):
         # Start File Handle
         self.transfer.upload(upload_list);
         self.transfer.download(download_list);
-        self.transfer.update(update_list);
 
         self.transfer.wait()
         

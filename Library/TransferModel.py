@@ -13,7 +13,6 @@ class Manager():
         # Initialize All Handler
         self.ul_handler = UploadHandler(self.target, self.api, self.db)
         self.dl_handler = DownloadHandler(self.target, self.api, self.db)
-        self.up_handler = UpdateHandler(self.target, self.api, self.db)
     
     # Start Upload Thread
     def upload(self, file_list):
@@ -22,7 +21,9 @@ class Manager():
             self.ul_handler.file_list = deque(file_list)
             self.ul_handler.start()
         else:
-            self.ul_handler.file_list += deque(file_list)
+            for file_info in file_list:
+                if file_info not in self.ul_handler.file_list:
+                    self.ul_handler.file_list.append(file_info)
     
     # Start Download Thread
     def download(self, file_list):
@@ -31,16 +32,9 @@ class Manager():
             self.dl_handler.file_list = deque(file_list)
             self.dl_handler.start()
         else:
-            self.dl_handler.file_list += deque(file_list)
-    
-    # Start Update Thread
-    def update(self, file_list):
-        if not self.up_handler.isAlive():
-            self.up_handler = UpdateHandler(self.target, self.api, self.db)
-            self.up_handler.file_list = deque(file_list)
-            self.up_handler.start()
-        else:
-            self.up_handler.file_list += deque(file_list)
+            for file_info in file_list:
+                if file_info not in self.dl_handler.file_list:
+                    self.dl_handler.file_list.append(file_info)
 
     # Wait All Thread Finished
     def wait(self):
@@ -49,9 +43,6 @@ class Manager():
             
         if self.dl_handler.isAlive():
             self.dl_handler.join()
-            
-        if self.up_handler.isAlive():
-            self.up_handler.join()
 
 '''
 File Upload Handler
@@ -84,15 +75,22 @@ class UploadHandler(Thread):
             
             # Upload File
             else:
-                print "<<< Upload File: %s" % info['path']
-                self.db.add({
-                    'path': info['path'],
-                    'type': 'file'
-                })
-                if not self.api.uploadFile(info['path'], self.target + info['path']):
-                    self.db.delete(info['path'])
-                    print '<<< Upload File: Fail %s' % self.api.getStatus()
-                    print self.api.getResult()
+                if info['update']:
+                    print "<<< Update File: %s" % info['path']
+                    if not self.api.updateFile(info['path'], self.target + info['path']):
+                        self.db.delete(info['path'])
+                        print '<<< Update File: Fail %s' % self.api.getStatus()
+                        print self.api.getResult()
+                else:
+                    print "<<< Upload File: %s" % info['path']
+                    self.db.add({
+                        'path': info['path'],
+                        'type': 'file'
+                    })
+                    if not self.api.uploadFile(info['path'], self.target + info['path']):
+                        self.db.delete(info['path'])
+                        print '<<< Upload File: Fail %s' % self.api.getStatus()
+                        print self.api.getResult()
 
 '''
 File Download Handler
@@ -134,45 +132,3 @@ class DownloadHandler(Thread):
                     self.db.delete(info['path'])
                     print '>>> Download File: Fail %s' % self.api.getStatus()
                     print self.api.getResult()
-
-'''
-File Update Handler
-'''
-class UpdateHandler(Thread):
-    def __init__(self, target, api, db):
-        Thread.__init__(self)
-        
-        self.target = target
-        self.api = api
-        self.db = db
-        self.file_list = deque([])
-    
-    def run(self):
-        if self.file_list:
-            self.handler()
-    
-    def handler(self):
-        while self.file_list:
-            info = self.file_list.popleft()
-            
-            # Upload File
-            if info['to'] == 'server':
-                print "<<< Update File: %s" % info['path']
-                if not self.api.updateFile(info['path'], self.target + info['path']):
-                    self.db.delete(info['path'])
-                    print '<<< Update File: Fail %s' % self.api.getStatus()
-                    print self.api.getResult()
-            
-            # Download File
-            else:
-                print ">>> Update File: %s" % info['path']
-                if not self.db.isExists(info['path']):
-                    self.db.add({
-                        'path': info['path'],
-                        'type': 'file'
-                    })
-                if not self.api.downloadFile(info['path'], self.target + info['path']):
-                    self.db.delete(info['path'])
-                    print '>>> Update File: Fail %s' % self.api.getStatus()
-                    print self.api.getResult()
-                    
