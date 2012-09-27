@@ -35,7 +35,7 @@ class EventCounter(Thread):
         self.handler = handler
     
     def run(self):
-        time.sleep(3)
+        time.sleep(1)
         self.handler.addEvent(None)
 
 class EventHandler(pyinotify.ProcessEvent):

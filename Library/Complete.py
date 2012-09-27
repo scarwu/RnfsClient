@@ -143,8 +143,7 @@ class Sync(Thread):
                     else:
                         download_list.append({
                             'path': path,
-                            'type': 'file',
-                            'update': True
+                            'type': 'file'
                         })
         
         # Generate List
@@ -158,8 +157,7 @@ class Sync(Thread):
         for path in download_index:
             download_list.append({
                 'path': path,
-                'type': server_list[path]['type'],
-                'update': False
+                'type': server_list[path]['type']
             })
 
         # Delete Lost Files

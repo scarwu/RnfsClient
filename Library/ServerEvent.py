@@ -54,7 +54,6 @@ class LongPolling(Thread):
                     os.mkdir(self.target + callback['path'])
                 
             elif callback['type'] == 'file':
-                callback['update'] = False
                 print "LongPolling Create File %s" % callback['path']
                 
                 # Download
@@ -63,7 +62,6 @@ class LongPolling(Thread):
         # Update File
         elif callback['action'] == 'update':
             callback['path'] = callback['path'].encode('utf-8')
-            callback['update'] = True
             print "LongPolling Update File %s" % callback['path']
             
             # Client Update

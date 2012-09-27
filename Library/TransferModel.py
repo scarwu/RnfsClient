@@ -123,24 +123,12 @@ class DownloadHandler(Thread):
                 
             # Download File
             else:
-                if info['update']:
-                    print ">>> Update File: %s" % info['path']
-                    if not self.db.isExists(info['path']):
-                        self.db.add({
-                            'path': info['path'],
-                            'type': 'file'
-                        })
-                    if not self.api.downloadFile(info['path'], self.target + info['path']):
-                        self.db.delete(info['path'])
-                        print '>>> Update File: Fail %s' % self.api.getStatus()
-                        print self.api.getResult()
-                else:
-                    print ">>> Download File: %s" % info['path']
-                    self.db.add({
-                        'path': info['path'],
-                        'type': 'file'
-                    })
-                    if not self.api.downloadFile(info['path'], self.target + info['path']):
-                        self.db.delete(info['path'])
-                        print '>>> Download File: Fail %s' % self.api.getStatus()
-                        print self.api.getResult()
+                print ">>> Download File: %s" % info['path']
+                self.db.add({
+                    'path': info['path'],
+                    'type': 'file'
+                })
+                if not self.api.downloadFile(info['path'], self.target + info['path']):
+                    self.db.delete(info['path'])
+                    print '>>> Download File: Fail %s' % self.api.getStatus()
+                    print self.api.getResult()
