@@ -21,7 +21,9 @@ class Sync(Thread):
     def run(self):
         print "CompleteSync Start"
         while(1):
+            start = time.time()
             self.differ()
+            print "Total Sync Time: %d" % ((time.time() - start) / 60)
             
             self.long_polling = ServerEvent.LongPolling(self.target, self.api, self.transfer, self.db)
             self.file_event = FileEvent.EventListener(self.target, self.api, self.transfer, self.db)
