@@ -1,4 +1,13 @@
 # -*- coding: utf-8 -*-
+'''
+File Transfer Model
+
+@package     RESTful Network File System
+@author      ScarWu
+@copyright   Copyright (c) 2012-2013, ScarWu (http://scar.simcz.tw/)
+@license     https://github.com/scarwu/RnfsClient/blob/master/LICENSE
+@link        https://github.com/scarwu/RnfsClient
+'''
 
 import os
 from threading import Thread

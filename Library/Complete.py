@@ -1,3 +1,14 @@
+# -*- coding: utf-8 -*-
+'''
+Complete Initialize and Sync
+
+@package     RESTful Network File System
+@author      ScarWu
+@copyright   Copyright (c) 2012-2013, ScarWu (http://scar.simcz.tw/)
+@license     https://github.com/scarwu/RnfsClient/blob/master/LICENSE
+@link        https://github.com/scarwu/RnfsClient
+'''
+
 import os
 import time
 import hashlib
